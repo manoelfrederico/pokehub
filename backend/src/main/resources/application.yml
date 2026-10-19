@@ -27,6 +27,16 @@ pokehub:
     connect-timeout: 3s
     read-timeout: 5s
     max-concurrent-requests: 10
+  jwt:
+    secret: ${POKEHUB_JWT_SECRET}
+    ttl: 1h
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+  demo-user:
+    enabled: true
+    username: ash
+    password: Pikachu#2026
 
 server:
   forward-headers-strategy: framework

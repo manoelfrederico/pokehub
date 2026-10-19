@@ -103,7 +103,7 @@ All models are immutable records with invariants checked in the compact construc
 |------|-----------|----------------|
 | `ListPokemonUseCase`, `GetPokemonDetailsUseCase`, `SyncPokemonUseCase`, `UnsyncPokemonUseCase`, `UpdatePokemonExtrasUseCase`, `RegisterUserUseCase`, `AuthenticateUserUseCase` | in | One method each; implemented by the services in `application.service` |
 | `PokemonCatalog` | out | Read-only gateway to PokéAPI: `listReferences`, `findSummaryById`, `findDetailsById` |
-| `PokemonStore` | out | Local replica: `findById`, `findSyncedIds(ids)`, `saveSnapshot(details)` (upsert that preserves extras), `updateExtras`, `deleteById` |
+| `PokemonStore` | out | Local replica: `findById`, `findSyncedIds(ids)`, `saveSnapshot(details)` (upsert that preserves extras), `updateExtras(id, extras)` (returns the updated replica, or empty when the id is not stored; snapshot columns untouched), `deleteById` |
 | `UserStore` | out | `findByUsername`, `existsByUsername`, `save` |
 | `PasswordHasher` | out | `hash`, `matches` |
 | `AccessTokenIssuer` | out | `issue(User)` → token + expiry |
@@ -122,8 +122,9 @@ asks `PokemonStore.findSyncedIds(ids)` once and flags synced entries.
 (single transaction, upsert; extras untouched). Returns whether it was created or refreshed (HTTP 201 / 200).
 `UnsyncPokemonService` deletes the local copy (204, or 404 if not synced).
 
-**US04 — update extras.** `UpdatePokemonExtrasService` requires the Pokémon to be stored (`PokemonNotSyncedException` → 404), builds a
-validated `PokemonExtras` (domain rules → 400) and saves it.
+**US04 — update extras.** `UpdatePokemonExtrasService` rejects ids below 1, builds a validated `PokemonExtras`
+(domain rules → 400) and calls `PokemonStore.updateExtras`. An empty result means the Pokémon is not stored
+(`PokemonNotSyncedException` → 404). The adapter writes only extras columns and tag rows.
 
 **Auth.** `RegisterUserService` (unique username, password policy, hash) and `AuthenticateUserService` (verify, issue JWT).
 Spring Security validates the JWT on every protected route; the use cases never see tokens.
@@ -134,6 +135,9 @@ Spring Security validates the JWT on every protected route; the use cases never 
 - **Caching.** Caches `pokemon-references` (key: `PageQuery`), `pokemon-summaries`, `pokemon-details`, `evolution-chains`; Caffeine, max size and TTL from `application.yml`. Failures are never cached.
 - **Concurrency toward PokéAPI.** Virtual-thread executor in the use case; a `Semaphore` in the adapter caps in-flight HTTP calls (`pokehub.pokeapi.max-concurrent-requests`).
 - **Configuration.** `@ConfigurationProperties` records validated at startup; secrets only via environment variables.
+  JWT signing uses `pokehub.jwt.secret` from `POKEHUB_JWT_SECRET` (≥ 32 bytes) and `pokehub.jwt.ttl` (default 1 h).
+  CORS origins come from `pokehub.cors.allowed-origins`. The demo user is seeded by `DemoUserSeeder` when
+  `pokehub.demo-user.enabled` is true (defaults `ash` / `Pikachu#2026`).
 - **Logging.** SLF4J; no sensitive data (passwords, tokens) in logs.
 
 ## 9. Testing strategy (unit tests only)

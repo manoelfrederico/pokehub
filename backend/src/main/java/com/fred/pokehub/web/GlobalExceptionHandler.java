@@ -1,11 +1,14 @@
 package com.fred.pokehub.web;
 
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
+import com.fred.pokehub.application.exception.InvalidCredentialsException;
 import com.fred.pokehub.application.exception.PokemonNotFoundException;
 import com.fred.pokehub.application.exception.PokemonNotSyncedException;
+import com.fred.pokehub.application.exception.UsernameAlreadyTakenException;
 import com.fred.pokehub.domain.exception.InvalidPaginationException;
 import com.fred.pokehub.domain.exception.InvalidPokemonExtrasException;
 import com.fred.pokehub.domain.exception.InvalidPokemonIdException;
+import com.fred.pokehub.domain.exception.InvalidUserException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -57,6 +60,28 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 				.map(violation -> new FieldErrorResponse(violation.field(), violation.message()))
 				.toList();
 		return invalidBody(errors);
+	}
+
+	@ExceptionHandler(InvalidUserException.class)
+	ProblemDetail handleInvalidUser(InvalidUserException exception) {
+		List<FieldErrorResponse> errors = exception.violations().stream()
+				.map(violation -> new FieldErrorResponse(violation.field(), violation.message()))
+				.toList();
+		return invalidBody(errors);
+	}
+
+	@ExceptionHandler(UsernameAlreadyTakenException.class)
+	ProblemDetail handleUsernameAlreadyTaken(UsernameAlreadyTakenException exception) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+		problem.setTitle("Username already taken");
+		return problem;
+	}
+
+	@ExceptionHandler(InvalidCredentialsException.class)
+	ProblemDetail handleInvalidCredentials(InvalidCredentialsException exception) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, exception.getMessage());
+		problem.setTitle("Unauthorized");
+		return problem;
 	}
 
 	@Override

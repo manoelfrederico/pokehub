@@ -1,0 +1,11 @@
+pokehub:
+  jwt:
+    secret: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ttl: 1h
+  cors:
+    allowed-origins:
+      - http://localhost:5173
+  demo-user:
+    enabled: false
+    username: ash
+    password: Pikachu#2026

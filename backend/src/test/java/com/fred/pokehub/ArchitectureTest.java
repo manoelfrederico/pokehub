@@ -58,6 +58,11 @@ class ArchitectureTest {
 			.should().dependOnClassesThat().resideInAnyPackage(INFRASTRUCTURE);
 
 	@ArchTest
+	static final ArchRule springSecurityStaysInSecurityAndConfig = noClasses()
+			.that().resideOutsideOfPackages("com.fred.pokehub.infrastructure.security..", CONFIG)
+			.should().dependOnClassesThat().resideInAnyPackage("org.springframework.security..");
+
+	@ArchTest
 	static final ArchRule infrastructureMustNotDependOnWeb = noClasses()
 			.that().resideInAnyPackage(INFRASTRUCTURE)
 			.should().dependOnClassesThat().resideInAnyPackage(WEB);
