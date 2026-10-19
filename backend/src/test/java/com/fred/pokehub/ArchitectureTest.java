@@ -14,11 +14,12 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 @AnalyzeClasses(packages = "com.fred.pokehub", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 
-	private static final String DOMAIN = "..domain..";
-	private static final String APPLICATION = "..application..";
-	private static final String INFRASTRUCTURE = "..infrastructure..";
-	private static final String WEB = "..web..";
-	private static final String CONFIG = "..config..";
+	// Rooted at the application package so "web" does not also match org.springframework.web.
+	private static final String DOMAIN = "com.fred.pokehub.domain..";
+	private static final String APPLICATION = "com.fred.pokehub.application..";
+	private static final String INFRASTRUCTURE = "com.fred.pokehub.infrastructure..";
+	private static final String WEB = "com.fred.pokehub.web..";
+	private static final String CONFIG = "com.fred.pokehub.config..";
 
 	private static final DescribedPredicate<JavaClass> UTIL_HELPER_OR_MANAGER = DescribedPredicate.describe(
 			"simple name ending with Util, Helper or Manager",
