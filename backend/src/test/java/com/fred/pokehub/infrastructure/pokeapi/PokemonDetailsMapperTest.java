@@ -1,5 +1,6 @@
 package com.fred.pokehub.infrastructure.pokeapi;
 
+import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.domain.model.Ability;
 import com.fred.pokehub.domain.model.EvolutionNode;
 import com.fred.pokehub.domain.model.Mass;
@@ -13,6 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PokemonDetailsMapperTest {
 
@@ -41,12 +43,14 @@ class PokemonDetailsMapperTest {
 		assertThat(details.category()).isEqualTo("Seed Pokémon");
 		assertThat(details.mass()).isEqualTo(new Mass(69));
 		assertThat(details.abilities()).containsExactly(
-				new Ability("overgrow", false),
-				new Ability("chlorophyll", true));
+				new Ability(65, "overgrow", false),
+				new Ability(34, "chlorophyll", true));
 		assertThat(details.stats()).containsExactly(new Stat("hp", 45));
 		assertThat(details.description()).isEqualTo(BULBASAUR_DESCRIPTION);
 		assertThat(details.evolutionChain().name()).isEqualTo("bulbasaur");
 		assertThat(details.evolutionChain().evolvesTo().getFirst().evolvesTo().getFirst().name()).isEqualTo("venusaur");
+		assertThat(details.speciesId()).isEqualTo(1);
+		assertThat(details.speciesName()).isEqualTo("bulbasaur");
 	}
 
 	@Test
@@ -58,6 +62,8 @@ class PokemonDetailsMapperTest {
 
 		assertThat(details.id()).isEqualTo(10033);
 		assertThat(details.name()).isEqualTo("venusaur-mega");
+		assertThat(details.speciesId()).isEqualTo(3);
+		assertThat(details.speciesName()).isEqualTo("venusaur");
 		assertThat(details.category()).isEqualTo("Seed Pokémon");
 		assertThat(pokemon("pokeapi/pokemon-10033.json").species().url()).endsWith("/pokemon-species/3/");
 	}
@@ -77,9 +83,9 @@ class PokemonDetailsMapperTest {
 						stat("special-defense", 65),
 						stat("speed", 45)),
 				null,
-				null);
+				speciesRef());
 
-		assertThat(PokemonDetailsMapper.toDetails(pokemon, null, new EvolutionNode(1, "bulbasaur", null, List.of())).stats())
+		assertThat(PokemonDetailsMapper.toDetails(pokemon, species(), new EvolutionNode(1, "bulbasaur", null, List.of())).stats())
 				.containsExactly(
 						new Stat("hp", 45),
 						new Stat("attack", 49),
@@ -102,9 +108,9 @@ class PokemonDetailsMapperTest {
 						new PokeApiResponses.StatSlot(10, new PokeApiResponses.NamedResource("  ", null)),
 						stat("hp", 45)),
 				null,
-				null);
+				speciesRef());
 
-		PokemonDetails details = PokemonDetailsMapper.toDetails(pokemon, null, new EvolutionNode(1, "bulbasaur", null, List.of()));
+		PokemonDetails details = PokemonDetailsMapper.toDetails(pokemon, species(), new EvolutionNode(1, "bulbasaur", null, List.of()));
 
 		assertThat(details.stats()).containsExactly(new Stat("hp", 45));
 		assertThat(details.abilities()).isEmpty();
@@ -128,13 +134,30 @@ class PokemonDetailsMapperTest {
 		assertThat(image(new PokeApiResponses.Sprites(null, null))).isNull();
 	}
 
+	@Test
+	void shouldFailWhenTheSpeciesNameIsBlank() {
+		PokeApiResponses.Pokemon pokemon = pokemonWith(null);
+		PokeApiResponses.Species species = new PokeApiResponses.Species("  ", null, null, null);
+
+		assertThatThrownBy(() -> PokemonDetailsMapper.toDetails(pokemon, species, new EvolutionNode(1, "bulbasaur", null, List.of())))
+				.isInstanceOf(CatalogUnavailableException.class);
+	}
+
 	private static String image(PokeApiResponses.Sprites sprites) {
-		return PokemonDetailsMapper.toDetails(pokemonWith(sprites), null, new EvolutionNode(1, "bulbasaur", null, List.of()))
+		return PokemonDetailsMapper.toDetails(pokemonWith(sprites), species(), new EvolutionNode(1, "bulbasaur", null, List.of()))
 				.imageUrl();
 	}
 
 	private static PokeApiResponses.Pokemon pokemonWith(PokeApiResponses.Sprites sprites) {
-		return new PokeApiResponses.Pokemon(1, "bulbasaur", 69, List.of(), List.of(), sprites, null);
+		return new PokeApiResponses.Pokemon(1, "bulbasaur", 69, List.of(), List.of(), sprites, speciesRef());
+	}
+
+	private static PokeApiResponses.NamedResource speciesRef() {
+		return new PokeApiResponses.NamedResource("bulbasaur", "https://pokeapi.co/api/v2/pokemon-species/1/");
+	}
+
+	private static PokeApiResponses.Species species() {
+		return new PokeApiResponses.Species("bulbasaur", null, null, null);
 	}
 
 	private static PokeApiResponses.Sprites sprites(String artwork, String frontDefault, String home) {

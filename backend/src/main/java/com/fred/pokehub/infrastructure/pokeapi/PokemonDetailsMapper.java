@@ -1,5 +1,6 @@
 package com.fred.pokehub.infrastructure.pokeapi;
 
+import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.domain.model.EvolutionNode;
 import com.fred.pokehub.domain.model.Mass;
 import com.fred.pokehub.domain.model.PokemonDetails;
@@ -28,7 +29,9 @@ final class PokemonDetailsMapper {
 				AbilityMapper.toAbilities(pokemon.abilities()),
 				stats(pokemon.stats()),
 				DescriptionCleaner.englishDescription(species == null ? null : species.flavorTextEntries()),
-				evolutionChain);
+				evolutionChain,
+				PokeApiUrls.extractId(pokemon.species() == null ? null : pokemon.species().url()),
+				speciesName(species));
 	}
 
 	private static List<Stat> stats(List<PokeApiResponses.StatSlot> slots) {
@@ -42,6 +45,15 @@ final class PokemonDetailsMapper {
 			}
 		}
 		return List.copyOf(stats);
+	}
+
+	private static String speciesName(PokeApiResponses.Species species) {
+		if (species == null || species.name() == null || species.name().isBlank()) {
+			throw new CatalogUnavailableException(
+					"Pokemon species name is blank",
+					new IllegalArgumentException("species name"));
+		}
+		return species.name();
 	}
 
 	private static boolean named(PokeApiResponses.StatSlot slot) {

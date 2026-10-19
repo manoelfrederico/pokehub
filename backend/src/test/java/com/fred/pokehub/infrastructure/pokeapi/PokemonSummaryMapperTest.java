@@ -31,13 +31,13 @@ class PokemonSummaryMapperTest {
 		assertThat(summary.category()).isEqualTo("Seed Pokémon");
 		assertThat(summary.mass()).isEqualTo(new Mass(69));
 		assertThat(summary.abilities()).containsExactly(
-				new Ability("overgrow", false),
-				new Ability("chlorophyll", true));
+				new Ability(65, "overgrow", false),
+				new Ability(34, "chlorophyll", true));
 	}
 
 	@Test
 	void shouldSelectTheEnglishGenusAmongMany() {
-		PokeApiResponses.Species species = new PokeApiResponses.Species(List.of(
+		PokeApiResponses.Species species = new PokeApiResponses.Species("bulbasaur", List.of(
 				genus("たねポケモン", "ja-hrkt"),
 				genus("Pokémon Graine", "fr"),
 				genus("Seed Pokémon", "en"),
@@ -49,7 +49,7 @@ class PokemonSummaryMapperTest {
 
 	@Test
 	void shouldLeaveCategoryNullWhenNoEnglishGenusExists() {
-		PokeApiResponses.Species species = new PokeApiResponses.Species(List.of(
+		PokeApiResponses.Species species = new PokeApiResponses.Species("bulbasaur", List.of(
 				genus("たねポケモン", "ja-hrkt"),
 				genus("Pokémon Graine", "fr")), null, null);
 
@@ -58,7 +58,7 @@ class PokemonSummaryMapperTest {
 
 	@Test
 	void shouldLeaveCategoryNullWhenGeneraAreNull() {
-		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), new PokeApiResponses.Species(null, null, null)).category())
+		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), new PokeApiResponses.Species(null, null, null, null)).category())
 				.isNull();
 	}
 
@@ -66,7 +66,7 @@ class PokemonSummaryMapperTest {
 	void shouldMapNullAbilitiesToAnEmptyList() {
 		PokeApiResponses.Pokemon pokemon = new PokeApiResponses.Pokemon(1, "bulbasaur", 69, null, null, null, null);
 
-		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null)).abilities()).isEmpty();
+		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null, null)).abilities()).isEmpty();
 	}
 
 	@Test
@@ -82,8 +82,8 @@ class PokemonSummaryMapperTest {
 				null,
 				null);
 
-		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null)).abilities())
-				.containsExactly(new Ability("overgrow", false));
+		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null, null)).abilities())
+				.containsExactly(new Ability(65, "overgrow", false));
 	}
 
 	@Test
@@ -97,7 +97,7 @@ class PokemonSummaryMapperTest {
 		assertThat(summary.name()).isEqualTo("venusaur-mega");
 		assertThat(summary.spriteUrl()).isEqualTo(MEGA_ARTWORK);
 		assertThat(summary.mass()).isEqualTo(new Mass(1555));
-		assertThat(summary.abilities()).containsExactly(new Ability("thick-fat", false));
+		assertThat(summary.abilities()).containsExactly(new Ability(47, "thick-fat", false));
 	}
 
 	private static PokeApiResponses.Pokemon pokemon(String resource) {

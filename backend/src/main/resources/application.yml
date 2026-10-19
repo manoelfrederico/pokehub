@@ -1,6 +1,16 @@
 spring:
   application:
     name: pokehub
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:appdb}
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgrespassword}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
   cache:
     type: caffeine
     cache-names:

@@ -2,6 +2,7 @@ package com.fred.pokehub.web;
 
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.exception.PokemonNotFoundException;
+import com.fred.pokehub.application.exception.PokemonNotSyncedException;
 import com.fred.pokehub.domain.exception.InvalidPaginationException;
 import com.fred.pokehub.domain.exception.InvalidPokemonIdException;
 import org.slf4j.Logger;
@@ -31,6 +32,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	ProblemDetail handlePokemonNotFound(PokemonNotFoundException exception) {
 		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
 		problem.setTitle("Pokémon not found");
+		return problem;
+	}
+
+	@ExceptionHandler(PokemonNotSyncedException.class)
+	ProblemDetail handlePokemonNotSynced(PokemonNotSyncedException exception) {
+		ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+		problem.setTitle("Pokémon not stored");
 		return problem;
 	}
 

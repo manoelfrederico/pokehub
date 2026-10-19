@@ -4,6 +4,7 @@ import java.util.List;
 
 /**
  * Listing read model for one Pokémon. {@code spriteUrl} and {@code category} may be null.
+ * {@code synced} is true when the local replica holds this Pokémon.
  */
 public record PokemonSummary(
 		int id,
@@ -11,8 +12,13 @@ public record PokemonSummary(
 		String spriteUrl,
 		String category,
 		Mass mass,
-		List<Ability> abilities
+		List<Ability> abilities,
+		boolean synced
 ) {
+
+	public PokemonSummary(int id, String name, String spriteUrl, String category, Mass mass, List<Ability> abilities) {
+		this(id, name, spriteUrl, category, mass, abilities, false);
+	}
 
 	public PokemonSummary {
 		if (id <= 0) {
@@ -29,6 +35,13 @@ public record PokemonSummary(
 		}
 		name = name.trim();
 		abilities = List.copyOf(abilities);
+	}
+
+	public PokemonSummary withSynced(boolean synced) {
+		if (this.synced == synced) {
+			return this;
+		}
+		return new PokemonSummary(id, name, spriteUrl, category, mass, abilities, synced);
 	}
 
 }

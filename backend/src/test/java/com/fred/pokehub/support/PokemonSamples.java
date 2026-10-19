@@ -19,7 +19,7 @@ public final class PokemonSamples {
 				"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png",
 				"Seed Pokémon",
 				new Mass(69),
-				List.of(new Ability("overgrow", false), new Ability("chlorophyll", true)));
+				List.of(new Ability(65, "overgrow", false), new Ability(34, "chlorophyll", true)));
 	}
 
 	public static PokemonSummary summary(int id) {

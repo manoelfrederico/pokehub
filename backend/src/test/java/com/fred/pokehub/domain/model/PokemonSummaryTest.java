@@ -13,7 +13,7 @@ class PokemonSummaryTest {
 	@Test
 	void shouldExposeListingFields() {
 		Mass mass = new Mass(69);
-		Ability overgrow = new Ability("overgrow", false);
+		Ability overgrow = new Ability(65, "overgrow", false);
 		PokemonSummary summary = new PokemonSummary(1, "bulbasaur", "https://sprites/1.png", "Seed Pokémon", mass,
 				List.of(overgrow));
 
@@ -23,6 +23,20 @@ class PokemonSummaryTest {
 		assertThat(summary.category()).isEqualTo("Seed Pokémon");
 		assertThat(summary.mass()).isEqualTo(mass);
 		assertThat(summary.abilities()).containsExactly(overgrow);
+		assertThat(summary.synced()).isFalse();
+	}
+
+	@Test
+	void shouldCopyTheSyncedFlag() {
+		PokemonSummary unsynced = new PokemonSummary(1, "bulbasaur", null, null, new Mass(1), List.of(), false);
+		PokemonSummary synced = unsynced.withSynced(true);
+
+		assertThat(synced.synced()).isTrue();
+		assertThat(synced.id()).isEqualTo(unsynced.id());
+		assertThat(synced.name()).isEqualTo(unsynced.name());
+		assertThat(synced.mass()).isEqualTo(unsynced.mass());
+		assertThat(synced.abilities()).isEqualTo(unsynced.abilities());
+		assertThat(unsynced.withSynced(false)).isSameAs(unsynced);
 	}
 
 	@Test
@@ -64,13 +78,13 @@ class PokemonSummaryTest {
 	@Test
 	void shouldCopyAbilitiesAndExposeAnImmutableList() {
 		List<Ability> abilities = new ArrayList<>();
-		abilities.add(new Ability("overgrow", false));
+		abilities.add(new Ability(65, "overgrow", false));
 		PokemonSummary summary = new PokemonSummary(1, "bulbasaur", null, null, new Mass(1), abilities);
 
-		abilities.add(new Ability("chlorophyll", true));
+		abilities.add(new Ability(34, "chlorophyll", true));
 
-		assertThat(summary.abilities()).containsExactly(new Ability("overgrow", false));
-		assertThatThrownBy(() -> summary.abilities().add(new Ability("chlorophyll", true)))
+		assertThat(summary.abilities()).containsExactly(new Ability(65, "overgrow", false));
+		assertThatThrownBy(() -> summary.abilities().add(new Ability(34, "chlorophyll", true)))
 				.isInstanceOf(UnsupportedOperationException.class);
 	}
 

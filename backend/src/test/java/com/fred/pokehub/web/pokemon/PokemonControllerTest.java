@@ -2,8 +2,11 @@ package com.fred.pokehub.web.pokemon;
 
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.exception.PokemonNotFoundException;
+import com.fred.pokehub.application.exception.PokemonNotSyncedException;
 import com.fred.pokehub.application.port.in.GetPokemonDetailsUseCase;
 import com.fred.pokehub.application.port.in.ListPokemonUseCase;
+import com.fred.pokehub.application.port.in.SyncPokemonUseCase;
+import com.fred.pokehub.application.port.in.UnsyncPokemonUseCase;
 import com.fred.pokehub.domain.exception.InvalidPokemonIdException;
 import com.fred.pokehub.domain.model.Ability;
 import com.fred.pokehub.domain.model.EvolutionNode;
@@ -15,6 +18,7 @@ import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonSummary;
 import com.fred.pokehub.domain.model.PokemonView;
 import com.fred.pokehub.domain.model.Stat;
+import com.fred.pokehub.domain.model.SyncResult;
 import com.fred.pokehub.support.PokemonSamples;
 import com.fred.pokehub.web.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +37,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -47,13 +52,19 @@ class PokemonControllerTest {
 
 	private FakeDetails details;
 
+	private FakeSync sync;
+
+	private FakeUnsync unsync;
+
 	private MockMvc mockMvc;
 
 	@BeforeEach
 	void setUp() {
 		useCase = new FakeListPokemon();
 		details = new FakeDetails();
-		mockMvc = MockMvcBuilders.standaloneSetup(new PokemonController(useCase, details))
+		sync = new FakeSync();
+		unsync = new FakeUnsync();
+		mockMvc = MockMvcBuilders.standaloneSetup(new PokemonController(useCase, details, sync, unsync))
 				.setControllerAdvice(new GlobalExceptionHandler())
 				.setMessageConverters(new JacksonJsonHttpMessageConverter(JsonMapper.builder().build()))
 				.build();
@@ -95,7 +106,16 @@ class PokemonControllerTest {
 				.andExpect(jsonPath("$.results[0].skills[0].hidden").value(false))
 				.andExpect(jsonPath("$.results[0].skills[1].name").value("chlorophyll"))
 				.andExpect(jsonPath("$.results[0].skills[1].hidden").value(true))
-				.andExpect(jsonPath("$.results[0].synced").doesNotExist());
+				.andExpect(jsonPath("$.results[0].synced").value(false));
+	}
+
+	@Test
+	void shouldFlagASyncedListingEntry() throws Exception {
+		useCase.items = List.of(PokemonSamples.bulbasaur().withSynced(true));
+
+		mockMvc.perform(get("/api/v1/pokemon"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.results[0].synced").value(true));
 	}
 
 	@Test
@@ -233,7 +253,7 @@ class PokemonControllerTest {
 	void shouldSerializeNullDetailFields() throws Exception {
 		details.view = new PokemonView(
 				new PokemonDetails(4, "pokemon-4", null, null, null, new Mass(10), List.of(), List.of(), null,
-						new EvolutionNode(4, "pokemon-4", null, List.of())),
+						new EvolutionNode(4, "pokemon-4", null, List.of()), 4, "pokemon-4"),
 				null,
 				false);
 
@@ -339,6 +359,101 @@ class PokemonControllerTest {
 				.andExpect(status().isNotFound());
 	}
 
+	@Test
+	void shouldReturnCreatedWhenSyncStoresANewPokemon() throws Exception {
+		sync.result = new SyncResult(true, bulbasaurView(PokemonExtras.empty(), true));
+
+		mockMvc.perform(post("/api/v1/pokemon/1/sync"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.synced").value(true))
+				.andExpect(jsonPath("$.extras.localizedName").value(nullValue()))
+				.andExpect(jsonPath("$.extras.tags").isEmpty());
+
+		assertThat(sync.requestedId).isEqualTo(1);
+	}
+
+	@Test
+	void shouldReturnOkWhenSyncRefreshesAPokemon() throws Exception {
+		sync.result = new SyncResult(false, bulbasaurView(new PokemonExtras("Bulbassauro", "Kanto", List.of("starter")), true));
+
+		mockMvc.perform(post("/api/v1/pokemon/1/sync"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.synced").value(true))
+				.andExpect(jsonPath("$.extras.localizedName").value("Bulbassauro"))
+				.andExpect(jsonPath("$.extras.region").value("Kanto"))
+				.andExpect(jsonPath("$.extras.tags[0]").value("starter"));
+	}
+
+	@Test
+	void shouldReturnNoContentWhenUnsyncDeletesAPokemon() throws Exception {
+		mockMvc.perform(delete("/api/v1/pokemon/1/sync"))
+				.andExpect(status().isNoContent())
+				.andExpect(content().string(""));
+
+		assertThat(unsync.requestedId).isEqualTo(1);
+	}
+
+	@Test
+	void shouldReturnNotStoredWhenUnsyncMisses() throws Exception {
+		unsync.failure = new PokemonNotSyncedException(7);
+
+		mockMvc.perform(delete("/api/v1/pokemon/7/sync"))
+				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.title").value("Pokémon not stored"))
+				.andExpect(jsonPath("$.detail").value(containsString("7")));
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"0", "-1"})
+	void shouldReturnBadRequestForANonPositiveSyncId(String id) throws Exception {
+		mockMvc.perform(post("/api/v1/pokemon/" + id + "/sync"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.title").value("Bad request"))
+				.andExpect(jsonPath("$.detail").value(containsString(id)));
+		mockMvc.perform(delete("/api/v1/pokemon/" + id + "/sync"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.detail").value(containsString(id)));
+
+		assertThat(sync.requestedId).isEqualTo(Integer.valueOf(id));
+		assertThat(unsync.requestedId).isEqualTo(Integer.valueOf(id));
+	}
+
+	@Test
+	void shouldReturnBadRequestForAnUnparseableSyncId() throws Exception {
+		mockMvc.perform(post("/api/v1/pokemon/abc/sync"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value(containsString("abc")));
+
+		assertThat(sync.requestedId).isNull();
+	}
+
+	@Test
+	void shouldReturnBadGatewayWhenSyncCannotReachTheCatalog() throws Exception {
+		sync.failure = new CatalogUnavailableException("postgres password leaked", new IOException("secret-reset"));
+
+		mockMvc.perform(post("/api/v1/pokemon/1/sync"))
+				.andExpect(status().isBadGateway())
+				.andExpect(jsonPath("$.status").value(502))
+				.andExpect(jsonPath("$.title").value("Catalog unavailable"))
+				.andExpect(jsonPath("$.detail").value("The Pokémon catalog is temporarily unavailable."))
+				.andExpect(content().string(org.hamcrest.Matchers.not(containsString("password"))))
+				.andExpect(content().string(org.hamcrest.Matchers.not(containsString("secret-reset"))));
+	}
+
+	@Test
+	void shouldReturnNotFoundWhenSyncCannotFindThePokemon() throws Exception {
+		sync.failure = new PokemonNotFoundException(44);
+
+		mockMvc.perform(post("/api/v1/pokemon/44/sync"))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.title").value("Pokémon not found"))
+				.andExpect(jsonPath("$.detail").value(containsString("44")));
+	}
+
 	private static PokemonView bulbasaurView(PokemonExtras extras, boolean synced) {
 		EvolutionNode venusaur = new EvolutionNode(3, "venusaur", "https://sprites/3.png", List.of());
 		EvolutionNode ivysaur = new EvolutionNode(2, "ivysaur", "https://sprites/2.png", List.of(venusaur));
@@ -350,10 +465,12 @@ class PokemonControllerTest {
 				"https://sprites/1.png",
 				"Seed Pokémon",
 				new Mass(69),
-				List.of(new Ability("overgrow", false)),
+				List.of(new Ability(65, "overgrow", false)),
 				List.of(new Stat("hp", 45), new Stat("attack", 49)),
 				"A strange seed.",
-				bulbasaur);
+				bulbasaur,
+				1,
+				"bulbasaur");
 		return new PokemonView(snapshot, extras, synced);
 	}
 
@@ -396,6 +513,47 @@ class PokemonControllerTest {
 				throw failure;
 			}
 			return view;
+		}
+
+	}
+
+	private static final class FakeSync implements SyncPokemonUseCase {
+
+		private SyncResult result;
+
+		private RuntimeException failure;
+
+		private Integer requestedId;
+
+		@Override
+		public SyncResult sync(int id) {
+			requestedId = id;
+			if (id < 1) {
+				throw new InvalidPokemonIdException("id must be positive but was " + id);
+			}
+			if (failure != null) {
+				throw failure;
+			}
+			return result;
+		}
+
+	}
+
+	private static final class FakeUnsync implements UnsyncPokemonUseCase {
+
+		private RuntimeException failure;
+
+		private Integer requestedId;
+
+		@Override
+		public void unsync(int id) {
+			requestedId = id;
+			if (id < 1) {
+				throw new InvalidPokemonIdException("id must be positive but was " + id);
+			}
+			if (failure != null) {
+				throw failure;
+			}
 		}
 
 	}

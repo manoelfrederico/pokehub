@@ -3,6 +3,7 @@ package com.fred.pokehub.application.service;
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.port.in.ListPokemonUseCase;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
+import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.domain.model.PageQuery;
 import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonReference;
@@ -12,6 +13,7 @@ import com.fred.pokehub.domain.model.PokemonSummary;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
@@ -20,6 +22,7 @@ import java.util.concurrent.Future;
 
 /**
  * Loads a page of references, then each summary concurrently, failing the whole page on the first error.
+ * One store lookup flags which ids on the page are already replicated.
  */
 public final class ListPokemonService implements ListPokemonUseCase {
 
@@ -29,9 +32,12 @@ public final class ListPokemonService implements ListPokemonUseCase {
 
 	private final ExecutorService executor;
 
-	public ListPokemonService(PokemonCatalog catalog, ExecutorService executor) {
+	private final PokemonStore store;
+
+	public ListPokemonService(PokemonCatalog catalog, ExecutorService executor, PokemonStore store) {
 		this.catalog = Objects.requireNonNull(catalog, "catalog");
 		this.executor = Objects.requireNonNull(executor, "executor");
+		this.store = Objects.requireNonNull(store, "store");
 	}
 
 	@Override
@@ -40,7 +46,16 @@ public final class ListPokemonService implements ListPokemonUseCase {
 		if (references.items().isEmpty()) {
 			return new PokemonPage(references.count(), query, List.of());
 		}
-		return new PokemonPage(references.count(), query, loadSummaries(references.items()));
+		List<PokemonSummary> summaries = loadSummaries(references.items());
+		return new PokemonPage(references.count(), query, flagSynced(summaries));
+	}
+
+	private List<PokemonSummary> flagSynced(List<PokemonSummary> summaries) {
+		List<Integer> ids = summaries.stream().map(PokemonSummary::id).toList();
+		Set<Integer> synced = store.findSyncedIds(ids);
+		return summaries.stream()
+				.map(summary -> summary.withSynced(synced.contains(summary.id())))
+				.toList();
 	}
 
 	private List<PokemonSummary> loadSummaries(List<PokemonReference> references) {

@@ -7,6 +7,10 @@ import java.util.List;
  */
 public record PokemonExtras(String localizedName, String region, List<String> tags) {
 
+	public static PokemonExtras empty() {
+		return new PokemonExtras(null, null, List.of());
+	}
+
 	public PokemonExtras {
 		if (tags == null) {
 			throw new IllegalArgumentException("tags must not be null");

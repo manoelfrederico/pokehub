@@ -11,7 +11,8 @@ public record PokemonSummaryResponse(
 		String sprite,
 		String category,
 		BigDecimal mass,
-		List<SkillResponse> skills
+		List<SkillResponse> skills,
+		boolean synced
 ) {
 
 	public static PokemonSummaryResponse from(PokemonSummary summary) {
@@ -21,7 +22,8 @@ public record PokemonSummaryResponse(
 				summary.spriteUrl(),
 				summary.category(),
 				summary.mass().kilograms(),
-				summary.abilities().stream().map(SkillResponse::from).toList());
+				summary.abilities().stream().map(SkillResponse::from).toList(),
+				summary.synced());
 	}
 
 }

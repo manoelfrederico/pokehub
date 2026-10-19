@@ -74,6 +74,8 @@ class PokeApiPokemonCatalogDetailsTest {
 
 		assertThat(details.id()).isEqualTo(10033);
 		assertThat(details.name()).isEqualTo("venusaur-mega");
+		assertThat(details.speciesId()).isEqualTo(3);
+		assertThat(details.speciesName()).isEqualTo("venusaur");
 		assertThat(details.category()).isEqualTo("Seed Pokémon");
 		assertThat(details.evolutionChain().id()).isEqualTo(1);
 		assertThat(details.evolutionChain().name()).isEqualTo("bulbasaur");

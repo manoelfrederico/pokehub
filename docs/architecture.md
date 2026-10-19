@@ -86,9 +86,9 @@ com.fred.pokehub
 
 ## 5. Domain model
 
-- `Mass(hectograms)` → `kilograms()`; `Ability(name, hidden)`; `Stat(name, baseValue)`.
-- `PokemonSummary(id, name, spriteUrl, category, mass, abilities)` — listing read model (US01).
-- `PokemonDetails(id, name, imageUrl, spriteUrl, category, mass, abilities, stats, description, evolutionChain)` — the PokéAPI snapshot (US02/US03).
+- `Mass(hectograms)` → `kilograms()`; `Ability(id, name, hidden)`; `Stat(name, baseValue)`. `id` is the PokéAPI ability id.
+- `PokemonSummary(id, name, spriteUrl, category, mass, abilities, synced)` — listing read model (US01).
+- `PokemonDetails(id, name, imageUrl, spriteUrl, category, mass, abilities, stats, description, evolutionChain, speciesId, speciesName)` — the PokéAPI snapshot (US02/US03). `speciesId` is the species resource id.
 - `EvolutionNode(id, name, spriteUrl, evolvesTo)` — recursive and immutable.
 - `PokemonExtras(localizedName, region, tags)` — proprietary fields, validated and normalized in the constructor (US03/US04).
 - `StoredPokemon(details, extras)` — what the local replica holds. `PokemonView(details, extras, synced)` — what the detail endpoint returns.

@@ -132,8 +132,8 @@ class PokeApiPokemonCatalogTest {
 		assertThat(summary.category()).isEqualTo("Seed Pokémon");
 		assertThat(summary.mass()).isEqualTo(new Mass(69));
 		assertThat(summary.abilities()).containsExactly(
-				new Ability("overgrow", false),
-				new Ability("chlorophyll", true));
+				new Ability(65, "overgrow", false),
+				new Ability(34, "chlorophyll", true));
 		server.verify();
 	}
 

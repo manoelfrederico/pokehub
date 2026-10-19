@@ -17,7 +17,10 @@ final class AbilityMapper {
 		List<Ability> abilities = new ArrayList<>();
 		for (PokeApiResponses.AbilitySlot slot : slots) {
 			if (named(slot)) {
-				abilities.add(new Ability(slot.ability().name(), slot.hidden()));
+				abilities.add(new Ability(
+						PokeApiUrls.extractId(slot.ability().url()),
+						slot.ability().name(),
+						slot.hidden()));
 			}
 		}
 		return List.copyOf(abilities);

@@ -20,10 +20,12 @@ class PokemonDetailsTest {
 		assertThat(details.spriteUrl()).isEqualTo("https://sprites/1.png");
 		assertThat(details.category()).isEqualTo("Seed Pokémon");
 		assertThat(details.mass()).isEqualTo(new Mass(69));
-		assertThat(details.abilities()).containsExactly(new Ability("overgrow", false));
+		assertThat(details.abilities()).containsExactly(new Ability(65, "overgrow", false));
 		assertThat(details.stats()).containsExactly(new Stat("hp", 45));
 		assertThat(details.description()).isEqualTo("A strange seed.");
 		assertThat(details.evolutionChain().name()).isEqualTo("bulbasaur");
+		assertThat(details.speciesId()).isEqualTo(1);
+		assertThat(details.speciesName()).isEqualTo("bulbasaur");
 	}
 
 	@Test
@@ -43,7 +45,9 @@ class PokemonDetailsTest {
 				List.of(),
 				List.of(),
 				null,
-				chain());
+				chain(),
+				1,
+				"bulbasaur");
 
 		assertThat(details.imageUrl()).isNull();
 		assertThat(details.spriteUrl()).isNull();
@@ -65,7 +69,9 @@ class PokemonDetailsTest {
 				List.of(),
 				List.of(),
 				" ",
-				chain());
+				chain(),
+				1,
+				"bulbasaur");
 
 		assertThat(details.imageUrl()).isEqualTo(" ");
 		assertThat(details.spriteUrl()).isEqualTo(" ");
@@ -97,46 +103,61 @@ class PokemonDetailsTest {
 
 	@Test
 	void shouldRejectNullMass() {
-		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, null, List.of(), List.of(), null, chain()))
+		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, null, List.of(), List.of(), null, chain(), 1, "bulbasaur"))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void shouldRejectNullAbilities() {
-		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), null, List.of(), null, chain()))
+		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), null, List.of(), null, chain(), 1, "bulbasaur"))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void shouldRejectNullStats() {
-		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), List.of(), null, null, chain()))
+		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), List.of(), null, null, chain(), 1, "bulbasaur"))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void shouldRejectNullEvolutionChain() {
-		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), List.of(), List.of(), null, null))
+		assertThatThrownBy(() -> new PokemonDetails(1, "bulbasaur", null, null, null, new Mass(1), List.of(), List.of(), null, null, 1, "bulbasaur"))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	@Test
 	void shouldCopyAbilitiesAndStats() {
 		List<Ability> abilities = new ArrayList<>();
-		abilities.add(new Ability("overgrow", false));
+		abilities.add(new Ability(65, "overgrow", false));
 		List<Stat> stats = new ArrayList<>();
 		stats.add(new Stat("hp", 45));
 		PokemonDetails details = new PokemonDetails(
-				1, "bulbasaur", null, null, null, new Mass(1), abilities, stats, null, chain());
+				1, "bulbasaur", null, null, null, new Mass(1), abilities, stats, null, chain(), 1, "bulbasaur");
 
-		abilities.add(new Ability("chlorophyll", true));
+		abilities.add(new Ability(34, "chlorophyll", true));
 		stats.add(new Stat("attack", 49));
 
-		assertThat(details.abilities()).containsExactly(new Ability("overgrow", false));
+		assertThat(details.abilities()).containsExactly(new Ability(65, "overgrow", false));
 		assertThat(details.stats()).containsExactly(new Stat("hp", 45));
-		assertThatThrownBy(() -> details.abilities().add(new Ability("chlorophyll", true)))
+		assertThatThrownBy(() -> details.abilities().add(new Ability(34, "chlorophyll", true)))
 				.isInstanceOf(UnsupportedOperationException.class);
 		assertThatThrownBy(() -> details.stats().add(new Stat("attack", 49)))
 				.isInstanceOf(UnsupportedOperationException.class);
+	}
+
+	@Test
+	void shouldRejectANonPositiveSpeciesId() {
+		assertThatThrownBy(() -> new PokemonDetails(
+				1, "bulbasaur", null, null, null, new Mass(1), List.of(), List.of(), null, chain(), 0, "bulbasaur"))
+				.isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("0");
+	}
+
+	@Test
+	void shouldRejectABlankSpeciesName() {
+		assertThatThrownBy(() -> new PokemonDetails(
+				1, "bulbasaur", null, null, null, new Mass(1), List.of(), List.of(), null, chain(), 1, "  "))
+				.isInstanceOf(IllegalArgumentException.class);
 	}
 
 	private static PokemonDetails bulbasaur() {
@@ -147,14 +168,16 @@ class PokemonDetailsTest {
 				"https://sprites/1.png",
 				"Seed Pokémon",
 				new Mass(69),
-				List.of(new Ability("overgrow", false)),
+				List.of(new Ability(65, "overgrow", false)),
 				List.of(new Stat("hp", 45)),
 				"A strange seed.",
-				chain());
+				chain(),
+				1,
+				"bulbasaur");
 	}
 
 	private static PokemonDetails details(int id, String name) {
-		return new PokemonDetails(id, name, null, null, null, new Mass(1), List.of(), List.of(), null, chain());
+		return new PokemonDetails(id, name, null, null, null, new Mass(1), List.of(), List.of(), null, chain(), 1, "bulbasaur");
 	}
 
 	private static EvolutionNode chain() {

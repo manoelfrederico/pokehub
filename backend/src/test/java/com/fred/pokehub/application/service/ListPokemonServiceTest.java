@@ -2,12 +2,14 @@ package com.fred.pokehub.application.service;
 
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
+import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.domain.model.PageQuery;
 import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonReference;
 import com.fred.pokehub.domain.model.PokemonReferencePage;
 import com.fred.pokehub.domain.model.PokemonSummary;
+import com.fred.pokehub.domain.model.StoredPokemon;
 import com.fred.pokehub.support.PokemonSamples;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,8 +17,13 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,10 +40,13 @@ class ListPokemonServiceTest {
 
 	private FakeCatalog catalog;
 
+	private FakeStore store;
+
 	@BeforeEach
 	void setUp() {
 		executor = Executors.newVirtualThreadPerTaskExecutor();
 		catalog = new FakeCatalog();
+		store = new FakeStore();
 	}
 
 	@AfterEach
@@ -109,6 +119,7 @@ class ListPokemonServiceTest {
 		assertThat(page.query()).isSameAs(query);
 		assertThat(page.items()).isEmpty();
 		assertThat(catalog.summaryCalls()).isZero();
+		assertThat(store.syncedIdCalls).isZero();
 	}
 
 	@Test
@@ -196,20 +207,67 @@ class ListPokemonServiceTest {
 
 	@Test
 	void shouldRejectNullCatalog() {
-		assertThatThrownBy(() -> new ListPokemonService(null, executor))
+		assertThatThrownBy(() -> new ListPokemonService(null, executor, store))
 				.isInstanceOf(NullPointerException.class)
 				.hasMessageContaining("catalog");
 	}
 
 	@Test
 	void shouldRejectNullExecutor() {
-		assertThatThrownBy(() -> new ListPokemonService(catalog, null))
+		assertThatThrownBy(() -> new ListPokemonService(catalog, null, store))
 				.isInstanceOf(NullPointerException.class)
 				.hasMessageContaining("executor");
 	}
 
+	@Test
+	void shouldRejectNullStore() {
+		assertThatThrownBy(() -> new ListPokemonService(catalog, executor, null))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("store");
+	}
+
+	@Test
+	void shouldFlagEverySummaryWhenTheWholePageIsSynced() {
+		catalog.page(2, PokemonSamples.reference(1), PokemonSamples.reference(2));
+		catalog.summary(1, PokemonSamples.summary(1));
+		catalog.summary(2, PokemonSamples.summary(2));
+		store.syncedIds = Set.of(1, 2);
+
+		PokemonPage page = service().list(PageQuery.of(20, 0));
+
+		assertThat(page.items()).allMatch(PokemonSummary::synced);
+		assertThat(store.requestedIds).containsExactly(List.of(1, 2));
+	}
+
+	@Test
+	void shouldLeaveSummariesUnsyncedWhenNoneAreStored() {
+		catalog.page(2, PokemonSamples.reference(1), PokemonSamples.reference(2));
+		catalog.summary(1, PokemonSamples.summary(1));
+		catalog.summary(2, PokemonSamples.summary(2));
+
+		PokemonPage page = service().list(PageQuery.of(50, 0));
+
+		assertThat(page.items()).noneMatch(PokemonSummary::synced);
+		assertThat(store.syncedIdCalls).isEqualTo(1);
+	}
+
+	@Test
+	void shouldFlagOnlyTheStoredIdsFromASingleLookup() {
+		catalog.page(3, PokemonSamples.reference(1), PokemonSamples.reference(2), PokemonSamples.reference(3));
+		catalog.summary(1, PokemonSamples.summary(1));
+		catalog.summary(2, PokemonSamples.summary(2));
+		catalog.summary(3, PokemonSamples.summary(3));
+		store.syncedIds = Set.of(2);
+
+		PokemonPage page = service().list(PageQuery.of(20, 0));
+
+		assertThat(page.items()).extracting(PokemonSummary::synced).containsExactly(false, true, false);
+		assertThat(store.syncedIdCalls).isEqualTo(1);
+		assertThat(store.requestedIds).containsExactly(List.of(1, 2, 3));
+	}
+
 	private ListPokemonService service() {
-		return new ListPokemonService(catalog, executor);
+		return new ListPokemonService(catalog, executor, store);
 	}
 
 	private static SummaryLoader parallel(CountDownLatch arrived, int id) {
@@ -313,6 +371,38 @@ class ListPokemonServiceTest {
 		@Override
 		public PokemonDetails findDetailsById(int id) {
 			throw new UnsupportedOperationException("findDetailsById");
+		}
+
+	}
+
+	private static final class FakeStore implements PokemonStore {
+
+		private Set<Integer> syncedIds = Set.of();
+
+		private final List<List<Integer>> requestedIds = new ArrayList<>();
+
+		private int syncedIdCalls;
+
+		@Override
+		public Optional<StoredPokemon> findById(int id) {
+			throw new UnsupportedOperationException("findById");
+		}
+
+		@Override
+		public Set<Integer> findSyncedIds(Collection<Integer> ids) {
+			syncedIdCalls++;
+			requestedIds.add(List.copyOf(ids));
+			return syncedIds;
+		}
+
+		@Override
+		public boolean saveSnapshot(PokemonDetails details) {
+			throw new UnsupportedOperationException("saveSnapshot");
+		}
+
+		@Override
+		public boolean deleteById(int id) {
+			throw new UnsupportedOperationException("deleteById");
 		}
 
 	}

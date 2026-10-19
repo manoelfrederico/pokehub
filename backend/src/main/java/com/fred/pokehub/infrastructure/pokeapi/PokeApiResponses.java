@@ -52,6 +52,7 @@ final class PokeApiResponses {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record Species(
+			String name,
 			List<Genus> genera,
 			@JsonProperty("flavor_text_entries") List<FlavorText> flavorTextEntries,
 			@JsonProperty("evolution_chain") NamedResource evolutionChain

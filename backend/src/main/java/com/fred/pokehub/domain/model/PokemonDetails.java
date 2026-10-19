@@ -4,6 +4,7 @@ import java.util.List;
 
 /**
  * PokéAPI snapshot of one Pokémon. Image, sprite, category and description may be null.
+ * {@code speciesId} is the species resource id, which differs from {@code id} for alternative forms.
  */
 public record PokemonDetails(
 		int id,
@@ -15,7 +16,9 @@ public record PokemonDetails(
 		List<Ability> abilities,
 		List<Stat> stats,
 		String description,
-		EvolutionNode evolutionChain
+		EvolutionNode evolutionChain,
+		int speciesId,
+		String speciesName
 ) {
 
 	public PokemonDetails {
@@ -37,7 +40,14 @@ public record PokemonDetails(
 		if (evolutionChain == null) {
 			throw new IllegalArgumentException("evolution chain must not be null");
 		}
+		if (speciesId <= 0) {
+			throw new IllegalArgumentException("species id must be positive but was " + speciesId);
+		}
+		if (speciesName == null || speciesName.isBlank()) {
+			throw new IllegalArgumentException("species name must not be blank");
+		}
 		name = name.trim();
+		speciesName = speciesName.trim();
 		abilities = List.copyOf(abilities);
 		stats = List.copyOf(stats);
 	}

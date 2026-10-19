@@ -11,8 +11,8 @@ all responses, caps concurrent outbound requests, and sends a descriptive `User-
 | Endpoint | Used for | Fields read |
 |----------|----------|-------------|
 | `GET /pokemon?limit={n}&offset={m}` | US01 page of references | `count`, `results[].name`, `results[].url` (id = last path segment). Ignore `next`/`previous`: they are absolute PokéAPI URLs. |
-| `GET /pokemon/{id}` | US01, US02 | `id`, `name`, `weight` (hectograms), `abilities[].ability.name`, `abilities[].is_hidden`, `stats[].base_stat`, `stats[].stat.name`, `sprites.front_default`, `sprites.other["official-artwork"].front_default`, `sprites.other.home.front_default`, `species.url` |
-| `GET /pokemon-species/{id}` | US01 category, US02 description + lineage | `genera[]` (`genus`, `language.name`), `flavor_text_entries[]` (`flavor_text`, `language.name`), `evolution_chain.url` |
+| `GET /pokemon/{id}` | US01, US02 | `id`, `name`, `weight` (hectograms), `abilities[].ability.name`, `abilities[].ability.url` (id = last path segment), `abilities[].is_hidden`, `stats[].base_stat`, `stats[].stat.name`, `sprites.front_default`, `sprites.other["official-artwork"].front_default`, `sprites.other.home.front_default`, `species.url` |
+| `GET /pokemon-species/{id}` | US01 category, US02 description + lineage, US03 species name | `name`, `genera[]` (`genus`, `language.name`), `flavor_text_entries[]` (`flavor_text`, `language.name`), `evolution_chain.url` |
 | `GET /evolution-chain/{id}` | US02 lineage | `chain` → recursive `{ species{name,url}, evolves_to[] }` |
 
 Rules:

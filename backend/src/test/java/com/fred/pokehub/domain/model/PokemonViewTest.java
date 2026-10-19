@@ -78,7 +78,9 @@ class PokemonViewTest {
 				List.of(),
 				List.of(),
 				null,
-				new EvolutionNode(1, "bulbasaur", null, List.of()));
+				new EvolutionNode(1, "bulbasaur", null, List.of()),
+				1,
+				"bulbasaur");
 	}
 
 }
