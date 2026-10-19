@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: pokehub
+  cache:
+    type: caffeine
+    cache-names:
+      - pokemon-references
+      - pokemon-summaries
+      - pokemon-details
+      - evolution-chains
+    caffeine:
+      spec: maximumSize=2000,expireAfterWrite=6h
+
+pokehub:
+  pokeapi:
+    base-url: https://pokeapi.co/api/v2
+    connect-timeout: 3s
+    read-timeout: 5s
+    max-concurrent-requests: 10
+
+server:
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

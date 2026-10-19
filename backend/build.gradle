@@ -1,0 +1,102 @@
+plugins {
+	id 'java'
+	id 'jacoco'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.fred'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	testImplementation 'org.assertj:assertj-core'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+// JaCoCo overall rule excludes (documented): bootstrap entrypoint and config wiring only.
+def jacocoClassFileExcludes = [
+	'**/PokehubApplication.class',
+	'**/config/**',
+]
+
+def jacocoFilteredMainClasses = { ->
+	files(sourceSets.main.output.classesDirs.files.collect { classesDir ->
+		fileTree(classesDir) {
+			exclude jacocoClassFileExcludes
+		}
+	})
+}
+
+jacocoTestReport {
+	dependsOn test
+	classDirectories.setFrom(jacocoFilteredMainClasses())
+	reports {
+		xml.required = true
+		html.required = true
+	}
+}
+
+jacocoTestCoverageVerification {
+	dependsOn jacocoTestReport
+	classDirectories.setFrom(jacocoFilteredMainClasses())
+	violationRules {
+		rule {
+			element = 'BUNDLE'
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
+			}
+		}
+		rule {
+			element = 'PACKAGE'
+			includes = ['com.fred.pokehub.domain..*']
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.90
+			}
+		}
+		rule {
+			element = 'PACKAGE'
+			includes = ['com.fred.pokehub.application..*']
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.90
+			}
+		}
+	}
+}
+
+check {
+	dependsOn jacocoTestCoverageVerification
+}
