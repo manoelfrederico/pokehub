@@ -1,6 +1,6 @@
 # Pokehub web
 
-React 19 + TypeScript front end for the Pokehub API.
+React 19 + TypeScript front end for the Pokehub API. How to run the whole application, including Docker, is in the [root README](../README.md).
 
 ## Setup
 

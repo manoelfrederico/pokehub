@@ -1,22 +1,24 @@
-# Stage 1: Build the Java application
 FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /app
 
-# Copy Gradle wrapper and build configuration files
 COPY gradlew settings.gradle build.gradle ./
 COPY gradle/ gradle/
+RUN chmod +x ./gradlew && ./gradlew dependencies --no-daemon
 
-# Download dependencies (cached if build files don't change)
-RUN ./gradlew dependencies --no-daemon
-
-# Copy source code and build the JAR package
 COPY src ./src
-RUN ./gradlew bootJar --no-daemon -x test
+RUN ./gradlew bootJar --no-daemon -x test \
+	&& find build/libs -type f -name '*.jar' ! -name '*-plain.jar' -exec cp {} /app/application.jar \; \
+	&& test -f /app/application.jar
 
-# Stage 2: Create the minimal runtime image
 FROM eclipse-temurin:25-jre-alpine
+RUN apk add --no-cache wget \
+	&& addgroup -S pokehub \
+	&& adduser -S pokehub -G pokehub
 WORKDIR /app
-COPY --from=build /app/build/libs/*.jar app.jar
+COPY --from=build --chown=pokehub:pokehub /app/application.jar app.jar
+USER pokehub
 
 EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --start-period=90s --retries=12 \
+	CMD wget -q -O /dev/null http://127.0.0.1:8080/actuator/health || exit 1
 ENTRYPOINT ["java", "-jar", "app.jar"]

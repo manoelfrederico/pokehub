@@ -7,29 +7,29 @@ anything not listed here is out of scope.
 
 ## 1. User stories
 
-| ID | Requirement (paraphrased) | Entry point | Prompt |
-|----|---------------------------|-------------|--------|
-| US01 | Browse Pokémon in paginated form; each entry shows sprite, category, mass and its skills. Nice to have: cache service responses. | `GET /api/v1/pokemon?limit&offset` | P01 |
-| US02 | View one Pokémon in detail: image, core statistics, narrative description, evolutionary lineage. | `GET /api/v1/pokemon/{id}` | P02 |
-| US03 | Persist Pokémon data into a local relational store so proprietary fields (localized name, geographic metadata, internal tags) can be added. | `POST /api/v1/pokemon/{id}/sync`, `DELETE /api/v1/pokemon/{id}/sync` | P03 |
-| US04 | Update any locally stored Pokémon. 404 for missing records, 400 for malformed payloads, further defensive logic as required. | `PUT /api/v1/pokemon/{id}/extras` | P04 |
+| ID | Requirement (paraphrased) | Endpoint | Classes | Tests |
+|----|---------------------------|----------|---------|-------|
+| US01 | Browse Pokémon in paginated form; each entry shows sprite, category, mass and its skills. Nice to have: cache service responses. | `GET /api/v1/pokemon` | `PokemonController`, `ListPokemonService`, `PageQuery`, `PokeApiPokemonCatalog`, `JpaPokemonStore.findSyncedIds` | `ListPokemonServiceTest`, `PageQueryTest`, `PokemonControllerTest`, `PokeApiPokemonCatalogTest`, `PokeApiPokemonCatalogCacheTest`, `PokemonListPage.test.tsx`, `usePokemonList.test.tsx` |
+| US02 | View one Pokémon in detail: image, core statistics, narrative description, evolutionary lineage. | `GET /api/v1/pokemon/{id}` | `PokemonController`, `GetPokemonDetailsService`, `PokeApiPokemonCatalog`, `EvolutionChainMapper`, `JpaPokemonStore` | `GetPokemonDetailsServiceTest`, `PokeApiPokemonCatalogDetailsTest`, `EvolutionChainMapperTest`, `PokemonDetailPage.test.tsx`, `usePokemonDetail.test.tsx`, `EvolutionTree.test.tsx` |
+| US03 | Persist Pokémon data into a local relational store so proprietary fields can be added. | `POST /api/v1/pokemon/{id}/sync`, `DELETE /api/v1/pokemon/{id}/sync` | `SyncPokemonService`, `UnsyncPokemonService`, `JpaPokemonStore` (`saveSnapshot` keeps extras) | `SyncPokemonServiceTest`, `UnsyncPokemonServiceTest`, `JpaPokemonStoreTest`, `PokemonControllerTest`, `PokemonDetailPage.test.tsx` |
+| US04 | Update any locally stored Pokémon. 404 when it is not stored, 400 for a malformed payload. | `PUT /api/v1/pokemon/{id}/extras` | `UpdatePokemonExtrasService`, `PokemonExtras`, `JpaPokemonStore.updateExtras` | `UpdatePokemonExtrasServiceTest`, `PokemonExtrasTest`, `PokemonControllerTest`, `EditExtrasPage.test.tsx`, `useUpdateExtras.test.tsx`, `validate-extras.test.ts` |
 
 ## 2. Technical requirements checklist
 
 | Requirement | Where it is satisfied |
 |-------------|-----------------------|
-| Public Git repository, tests, proper error handling | whole repo; `GlobalExceptionHandler` (RFC 9457 problem details) |
-| Caching layer for PokéAPI responses (nice to have) | Caffeine via Spring Cache in `infrastructure.pokeapi` (P01, P02) |
-| Front end consuming the API (React) | `frontend/` (P07) |
-| Relational database with a primary entity and a secondary collection for user management; unique PK and at least two descriptive attributes | `pokemon` (+ related tables) and `users` (`docs/data-model.md`) |
-| Web API with CRUD, standard HTTP verbs, required parameters, consistent return structures | `docs/api-contract.md` |
-| Auxiliary API for registration, authentication, protected versus public routes | `/api/v1/auth/*` + route matrix (P05) |
-| Specialized data access layer | `infrastructure.persistence` behind the `PokemonStore` / `UserStore` ports |
-| Core business logic layer independent from API and data access | `domain` + `application` (no framework imports) |
-| Thorough unit tests for every core component | `docs/architecture.md` §9 |
-| Responsive, user-centric UI; CRUD on use cases; clean component organization; efficient state management; no browser console warnings | P07 |
-| README, seeded demo data or mock credentials, Dockerfile | P08 |
-| Generative AI exercise (task-management API prompt, output, validation notes) | `docs/genai-exercise.md` (P09) |
+| Public Git repository, tests, proper error handling | Repository tests; `GlobalExceptionHandler` returns RFC 9457 `ProblemDetail` (`PokemonControllerTest`, `AuthControllerTest`) |
+| Caching layer for PokéAPI responses (nice to have) | Caffeine via `CacheConfig` and `@Cacheable` on `PokeApiPokemonCatalog`; `PokeApiPokemonCatalogCacheTest` |
+| Front end consuming the API (React) | `frontend/src` (`AppRouter`, feature pages, `frontend/src/api/client.ts`) |
+| Relational database with a primary entity and a secondary collection for user management; unique PK and at least two descriptive attributes | `V1__create_schema.sql`: `pokemon` (and `species`, `ability`, stats, tags) and `users` (`id`, `username`, `password_hash`). See `docs/data-model.md` |
+| Web API with CRUD, standard HTTP verbs, required parameters, consistent return structures | `PokemonController`, `AuthController`; contract in `docs/api-contract.md`; `OpenApiContractTest` |
+| Auxiliary API for registration, authentication, protected versus public routes | `POST /api/v1/auth/register`, `POST /api/v1/auth/login`; `SecurityConfig`; `RegisterUserService`, `AuthenticateUserService`; `RouteSecurityTest` |
+| Specialized data access layer | `JpaPokemonStore`, `JpaUserStore` behind `PokemonStore` and `UserStore`; `JpaPokemonStoreTest`, `JpaUserStoreTest` |
+| Core business logic layer independent from API and data access | `domain`, `application` (no framework imports); `ArchitectureTest` |
+| Thorough unit tests for every core component | `backend/src/test/java`, `frontend/src/**/*.test.*`; strategy in `docs/architecture.md` §9. Gate: `gradlew check` |
+| Responsive, user-centric UI; CRUD on use cases; clean component organization; efficient state management; no browser console warnings | `frontend/src/features` (list, detail, sync/edit, auth), TanStack Query, `ProtectedRoute.test.tsx` |
+| README, seeded demo data or mock credentials, Dockerfile | `README.md`; `V2__seed_demo_data.sql` (Pokémon snapshot); `DemoUserSeeder` (`ash` / `Pikachu#2026`, `DemoUserSeederTest`); `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
+| Generative AI exercise (task-management API prompt, output, validation notes) | Not in this repository yet (P09) |
 
 ## 3. Interpretations and assumptions
 
