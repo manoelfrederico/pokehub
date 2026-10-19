@@ -29,7 +29,7 @@ anything not listed here is out of scope.
 | Thorough unit tests for every core component | `backend/src/test/java`, `frontend/src/**/*.test.*`; strategy in `docs/architecture.md` §9. Gate: `gradlew check` |
 | Responsive, user-centric UI; CRUD on use cases; clean component organization; efficient state management; no browser console warnings | `frontend/src/features` (list, detail, sync/edit, auth), TanStack Query, `ProtectedRoute.test.tsx` |
 | README, seeded demo data or mock credentials, Dockerfile | `README.md`; `V2__seed_demo_data.sql` (Pokémon snapshot); `DemoUserSeeder` (`ash` / `Pikachu#2026`, `DemoUserSeederTest`); `backend/Dockerfile`, `frontend/Dockerfile`, `docker-compose.yml` |
-| Generative AI exercise (task-management API prompt, output, validation notes) | Not in this repository yet (P09) |
+| Generative AI exercise | Presented in the interview; how AI was used in this project is summarized in the README |
 
 ## 3. Interpretations and assumptions
 

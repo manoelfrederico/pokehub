@@ -2,12 +2,6 @@
 
 Pokehub browses Pokémon from [PokéAPI](https://pokeapi.co/), stores a local copy of the ones you choose, and lets a signed-in user add a localized name, a region and tags. Reads are public. Sync, unsync and editing require a JWT.
 
-**Screenshot:** placeholder. Before you submit, add a PNG or a short GIF of the list and a synced detail page at `docs/images/pokehub.png` and drop it in here.
-
-<!-- SCREENSHOT: replace the paragraph above with:
-     ![Pokehub](docs/images/pokehub.png)
--->
-
 ## Stack
 
 | Part | Choice |
@@ -183,12 +177,11 @@ Demo passwords and the demo JWT secret are in this repository on purpose so `doc
 
 ## How AI was used
 
-Tools: Cursor, with an agent editing this repository. <!-- FILL: model name you actually used -->
+Tools: Cursor, with an agent editing this repository. Model: Grok 4.7 High Fast
 
 Workflow: for each slice, the agent wrote a plan and waited. Implementation was test-first: a failing test, the minimum code that passed, then a refactor. I reviewed the diff before keeping it.
 
 What I verified and corrected:
-
-- <!-- EXAMPLE: a test or behaviour you rejected or rewrote, and why -->
-- <!-- EXAMPLE: a Docker, API or schema mistake you caught in review -->
-- <!-- EXAMPLE: something you checked by hand (a request, a screen, a coverage report) and what you changed afterwards -->
+- `.\gradlew check` and the frontend lint, typecheck, test, and build were green before I kept the delivery changes.
+- I ran `docker compose up --build`, logged in as `ash`, opened a seeded Pokémon, edited extras, and confirmed the change survived a refresh.
+- I read the Docker and nginx diff. The `/api` proxy keeps the full path, and the backend healthcheck uses GET `/actuator/health`.
