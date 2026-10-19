@@ -3,6 +3,7 @@ package com.fred.pokehub.infrastructure.pokeapi;
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
 import com.fred.pokehub.domain.model.PageQuery;
+import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.PokemonSummary;
 import com.fred.pokehub.support.Fixtures;
 import org.junit.jupiter.api.BeforeEach;
@@ -97,11 +98,73 @@ class PokeApiPokemonCatalogCacheTest {
 		server.verify();
 	}
 
+	@Test
+	void shouldNotCallTheServerAgainForTheSameDetailsId() {
+		expectMegaDetails();
+
+		PokemonDetails first = catalog.findDetailsById(10033);
+		PokemonDetails second = catalog.findDetailsById(10033);
+
+		assertThat(second).isEqualTo(first);
+		server.verify();
+	}
+
+	@Test
+	void shouldNotCacheAFailedDetailsLookup() {
+		server.expect(requestTo(BASE + "/pokemon/10033")).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+		assertThatThrownBy(() -> catalog.findDetailsById(10033)).isInstanceOf(CatalogUnavailableException.class);
+
+		server.reset();
+		expectMegaDetails();
+		assertThat(catalog.findDetailsById(10033).name()).isEqualTo("venusaur-mega");
+		server.verify();
+	}
+
+	@Test
+	void shouldNotReuseACachedSummaryWhenLoadingDetails() {
+		expectBulbasaur();
+		catalog.findSummaryById(1);
+		server.verify();
+
+		server.reset();
+		expectBulbasaur();
+		server.expect(once(), requestTo(BASE + "/evolution-chain/1"))
+				.andRespond(json(Fixtures.read("pokeapi/evolution-chain-1.json")));
+
+		assertThat(catalog.findDetailsById(1).name()).isEqualTo("bulbasaur");
+		server.verify();
+	}
+
+	@Test
+	void shouldServeASharedEvolutionChainFromCache() {
+		expectBulbasaur();
+		server.expect(once(), requestTo(BASE + "/evolution-chain/1"))
+				.andRespond(json(Fixtures.read("pokeapi/evolution-chain-1.json")));
+		server.expect(once(), requestTo(BASE + "/pokemon/10033"))
+				.andRespond(json(Fixtures.read("pokeapi/pokemon-10033.json")));
+		server.expect(once(), requestTo(BASE + "/pokemon-species/3"))
+				.andRespond(json(Fixtures.read("pokeapi/species-3.json")));
+
+		catalog.findDetailsById(1);
+		catalog.findDetailsById(10033);
+
+		server.verify();
+	}
+
 	private void expectBulbasaur() {
 		server.expect(once(), requestTo(BASE + "/pokemon/1"))
 				.andRespond(json(Fixtures.read("pokeapi/pokemon-1.json")));
 		server.expect(once(), requestTo(BASE + "/pokemon-species/1"))
 				.andRespond(json(Fixtures.read("pokeapi/species-1.json")));
+	}
+
+	private void expectMegaDetails() {
+		server.expect(once(), requestTo(BASE + "/pokemon/10033"))
+				.andRespond(json(Fixtures.read("pokeapi/pokemon-10033.json")));
+		server.expect(once(), requestTo(BASE + "/pokemon-species/3"))
+				.andRespond(json(Fixtures.read("pokeapi/species-3.json")));
+		server.expect(once(), requestTo(BASE + "/evolution-chain/1"))
+				.andRespond(json(Fixtures.read("pokeapi/evolution-chain-1.json")));
 	}
 
 	private static org.springframework.test.web.client.ResponseCreator json(String body) {
@@ -133,13 +196,36 @@ class PokeApiPokemonCatalogCacheTest {
 		}
 
 		@Bean
-		PokemonCatalog pokemonCatalog(RestClient pokeApiRestClient, PokeApiProperties properties) {
-			return new PokeApiPokemonCatalog(pokeApiRestClient, new Semaphore(4), properties);
+		Semaphore pokeApiPermits() {
+			return new Semaphore(4);
+		}
+
+		@Bean
+		PokeApiEvolutionChains pokeApiEvolutionChains(
+				RestClient pokeApiRestClient,
+				Semaphore pokeApiPermits,
+				PokeApiProperties properties
+		) {
+			return new PokeApiEvolutionChains(pokeApiRestClient, pokeApiPermits, properties);
+		}
+
+		@Bean
+		PokemonCatalog pokemonCatalog(
+				RestClient pokeApiRestClient,
+				Semaphore pokeApiPermits,
+				PokeApiProperties properties,
+				PokeApiEvolutionChains evolutionChains
+		) {
+			return new PokeApiPokemonCatalog(pokeApiRestClient, pokeApiPermits, properties, evolutionChains);
 		}
 
 		@Bean
 		CacheManager cacheManager() {
-			return new ConcurrentMapCacheManager(CacheNames.POKEMON_REFERENCES, CacheNames.POKEMON_SUMMARIES);
+			return new ConcurrentMapCacheManager(
+					CacheNames.POKEMON_REFERENCES,
+					CacheNames.POKEMON_SUMMARIES,
+					CacheNames.POKEMON_DETAILS,
+					CacheNames.EVOLUTION_CHAINS);
 		}
 
 	}

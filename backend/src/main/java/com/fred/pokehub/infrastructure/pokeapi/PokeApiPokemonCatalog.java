@@ -3,6 +3,7 @@ package com.fred.pokehub.infrastructure.pokeapi;
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
 import com.fred.pokehub.domain.model.PageQuery;
+import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.PokemonReference;
 import com.fred.pokehub.domain.model.PokemonReferencePage;
 import com.fred.pokehub.domain.model.PokemonSummary;
@@ -10,9 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -22,34 +21,43 @@ public class PokeApiPokemonCatalog implements PokemonCatalog {
 
 	private static final Logger log = LoggerFactory.getLogger(PokeApiPokemonCatalog.class);
 
-	private static final String UNAVAILABLE = "The Pokémon catalog is temporarily unavailable.";
+	private final PokeApiHttp http;
 
-	private final RestClient client;
+	private final PokeApiEvolutionChains evolutionChains;
 
-	private final Semaphore permits;
-
-	private final PokeApiProperties properties;
-
-	public PokeApiPokemonCatalog(RestClient client, Semaphore permits, PokeApiProperties properties) {
-		this.client = Objects.requireNonNull(client, "client");
-		this.permits = Objects.requireNonNull(permits, "permits");
-		this.properties = Objects.requireNonNull(properties, "properties");
+	public PokeApiPokemonCatalog(
+			RestClient client,
+			Semaphore permits,
+			PokeApiProperties properties,
+			PokeApiEvolutionChains evolutionChains
+	) {
+		this.http = new PokeApiHttp(client, permits, properties);
+		this.evolutionChains = Objects.requireNonNull(evolutionChains, "evolutionChains");
 	}
 
 	@Override
 	@Cacheable(cacheNames = CacheNames.POKEMON_REFERENCES)
 	public PokemonReferencePage listReferences(PageQuery query) {
 		log.info("Fetching pokemon references limit={} offset={}", query.limit(), query.offset());
-		return toPage(get(listUri(query), PokeApiResponses.PokemonList.class));
+		return toPage(http.get(http.list(query), PokeApiResponses.PokemonList.class));
 	}
 
 	@Override
 	@Cacheable(cacheNames = CacheNames.POKEMON_SUMMARIES)
 	public PokemonSummary findSummaryById(int id) {
 		log.info("Fetching pokemon summary id={}", id);
-		PokeApiResponses.Pokemon pokemon = get(resourceUri("pokemon", id), PokeApiResponses.Pokemon.class);
-		PokeApiResponses.Species species = get(resourceUri("pokemon-species", speciesId(pokemon)), PokeApiResponses.Species.class);
+		PokeApiResponses.Pokemon pokemon = http.get(http.resource("pokemon", id), PokeApiResponses.Pokemon.class);
+		PokeApiResponses.Species species = http.get(http.resource("pokemon-species", speciesId(pokemon)), PokeApiResponses.Species.class);
 		return PokemonSummaryMapper.toSummary(pokemon, species);
+	}
+
+	@Override
+	@Cacheable(cacheNames = CacheNames.POKEMON_DETAILS)
+	public PokemonDetails findDetailsById(int id) {
+		log.info("Fetching pokemon details id={}", id);
+		PokeApiResponses.Pokemon pokemon = http.pokemon(id);
+		PokeApiResponses.Species species = http.get(http.resource("pokemon-species", speciesId(pokemon)), PokeApiResponses.Species.class);
+		return PokemonDetailsMapper.toDetails(pokemon, species, evolutionChains.load(chainId(species)));
 	}
 
 	private PokemonReferencePage toPage(PokeApiResponses.PokemonList list) {
@@ -75,49 +83,9 @@ public class PokeApiPokemonCatalog implements PokemonCatalog {
 		return PokeApiUrls.extractId(url);
 	}
 
-	private <T> T get(URI uri, Class<T> bodyType) {
-		acquire();
-		try {
-			return requireBody(client.get().uri(uri).retrieve().body(bodyType));
-		}
-		catch (RestClientException exception) {
-			throw new CatalogUnavailableException(UNAVAILABLE, exception);
-		}
-		finally {
-			permits.release();
-		}
-	}
-
-	private static <T> T requireBody(T body) {
-		if (body == null) {
-			throw new CatalogUnavailableException(
-					"Pokemon catalog returned an empty body",
-					new IllegalStateException("empty body"));
-		}
-		return body;
-	}
-
-	private void acquire() {
-		try {
-			permits.acquire();
-		}
-		catch (InterruptedException exception) {
-			Thread.currentThread().interrupt();
-			throw new CatalogUnavailableException(UNAVAILABLE, exception);
-		}
-	}
-
-	private URI listUri(PageQuery query) {
-		return URI.create(baseUrl() + "/pokemon?limit=" + query.limit() + "&offset=" + query.offset());
-	}
-
-	private URI resourceUri(String resource, int id) {
-		return URI.create(baseUrl() + "/" + resource + "/" + id);
-	}
-
-	private String baseUrl() {
-		String baseUrl = properties.baseUrl();
-		return baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
+	private static int chainId(PokeApiResponses.Species species) {
+		String url = species.evolutionChain() == null ? null : species.evolutionChain().url();
+		return PokeApiUrls.extractId(url);
 	}
 
 }

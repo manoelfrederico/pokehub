@@ -52,7 +52,7 @@ class PokeApiPokemonCatalogTest {
 		RestClient.Builder builder = PokeApiClientConfig.restClientBuilder(properties);
 		server = MockRestServiceServer.bindTo(builder).build();
 		client = builder.build();
-		catalog = new PokeApiPokemonCatalog(client, new Semaphore(4), properties);
+		catalog = catalog(client, new Semaphore(4), properties);
 	}
 
 	@Test
@@ -109,7 +109,7 @@ class PokeApiPokemonCatalogTest {
 	@Test
 	void shouldStripATrailingSlashFromTheBaseUrl() {
 		PokeApiProperties slashed = new PokeApiProperties(BASE + "/", Duration.ofSeconds(1), Duration.ofSeconds(1), 4);
-		PokeApiPokemonCatalog slashedCatalog = new PokeApiPokemonCatalog(client, new Semaphore(1), slashed);
+		PokeApiPokemonCatalog slashedCatalog = catalog(client, new Semaphore(1), slashed);
 		server.expect(requestTo(BASE + "/pokemon?limit=2&offset=0"))
 				.andRespond(jsonBody("{\"count\":1,\"results\":[]}"));
 
@@ -214,7 +214,7 @@ class PokeApiPokemonCatalogTest {
 
 	@Test
 	void shouldReleasePermitsAfterRepeatedFailures() {
-		PokeApiPokemonCatalog limited = new PokeApiPokemonCatalog(client, new Semaphore(1), properties);
+		PokeApiPokemonCatalog limited = catalog(client, new Semaphore(1), properties);
 		server.expect(times(3), requestTo(BASE + "/pokemon/1")).andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
 		assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
@@ -227,7 +227,7 @@ class PokeApiPokemonCatalogTest {
 	@Test
 	void shouldRestoreTheInterruptFlagWhenPermitAcquisitionIsInterrupted() {
 		Semaphore permits = new Semaphore(0);
-		PokeApiPokemonCatalog blocked = new PokeApiPokemonCatalog(client, permits, properties);
+		PokeApiPokemonCatalog blocked = catalog(client, permits, properties);
 
 		assertTimeoutPreemptively(Duration.ofSeconds(2), () -> {
 			Thread caller = Thread.currentThread();
@@ -263,6 +263,10 @@ class PokeApiPokemonCatalogTest {
 
 	private static org.springframework.test.web.client.ResponseCreator jsonBody(String body) {
 		return withSuccess(body, MediaType.APPLICATION_JSON);
+	}
+
+	private static PokeApiPokemonCatalog catalog(RestClient client, Semaphore permits, PokeApiProperties properties) {
+		return new PokeApiPokemonCatalog(client, permits, properties, new PokeApiEvolutionChains(client, permits, properties));
 	}
 
 }

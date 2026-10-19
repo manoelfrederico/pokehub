@@ -41,7 +41,7 @@ class PokemonSummaryMapperTest {
 				genus("たねポケモン", "ja-hrkt"),
 				genus("Pokémon Graine", "fr"),
 				genus("Seed Pokémon", "en"),
-				genus("Samen-Pokémon", "de")));
+				genus("Samen-Pokémon", "de")), null, null);
 
 		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), species).category())
 				.isEqualTo("Seed Pokémon");
@@ -51,22 +51,22 @@ class PokemonSummaryMapperTest {
 	void shouldLeaveCategoryNullWhenNoEnglishGenusExists() {
 		PokeApiResponses.Species species = new PokeApiResponses.Species(List.of(
 				genus("たねポケモン", "ja-hrkt"),
-				genus("Pokémon Graine", "fr")));
+				genus("Pokémon Graine", "fr")), null, null);
 
 		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), species).category()).isNull();
 	}
 
 	@Test
 	void shouldLeaveCategoryNullWhenGeneraAreNull() {
-		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), new PokeApiResponses.Species(null)).category())
+		assertThat(PokemonSummaryMapper.toSummary(pokemon("pokeapi/pokemon-1.json"), new PokeApiResponses.Species(null, null, null)).category())
 				.isNull();
 	}
 
 	@Test
 	void shouldMapNullAbilitiesToAnEmptyList() {
-		PokeApiResponses.Pokemon pokemon = new PokeApiResponses.Pokemon(1, "bulbasaur", 69, null, null, null);
+		PokeApiResponses.Pokemon pokemon = new PokeApiResponses.Pokemon(1, "bulbasaur", 69, null, null, null, null);
 
-		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null)).abilities()).isEmpty();
+		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null)).abilities()).isEmpty();
 	}
 
 	@Test
@@ -79,9 +79,10 @@ class PokemonSummaryMapperTest {
 						new PokeApiResponses.AbilitySlot(null, false),
 						new PokeApiResponses.AbilitySlot(new PokeApiResponses.NamedResource("overgrow", "https://ability/65"), false)),
 				null,
+				null,
 				null);
 
-		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null)).abilities())
+		assertThat(PokemonSummaryMapper.toSummary(pokemon, new PokeApiResponses.Species(null, null, null)).abilities())
 				.containsExactly(new Ability("overgrow", false));
 	}
 

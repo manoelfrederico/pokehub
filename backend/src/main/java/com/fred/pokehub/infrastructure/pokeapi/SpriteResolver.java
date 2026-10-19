@@ -18,6 +18,26 @@ final class SpriteResolver {
 		return fallback(sprites.other());
 	}
 
+	static Optional<String> detailImage(PokeApiResponses.Sprites sprites) {
+		if (sprites == null) {
+			return Optional.empty();
+		}
+		Optional<String> artwork = sprites.other() == null
+				? Optional.empty()
+				: frontDefault(sprites.other().officialArtwork());
+		if (artwork.isPresent()) {
+			return artwork;
+		}
+		Optional<String> frontDefault = nonBlank(sprites.frontDefault());
+		if (frontDefault.isPresent()) {
+			return frontDefault;
+		}
+		if (sprites.other() == null) {
+			return Optional.empty();
+		}
+		return frontDefault(sprites.other().home());
+	}
+
 	private static Optional<String> fallback(PokeApiResponses.OtherSprites other) {
 		if (other == null) {
 			return Optional.empty();

@@ -26,8 +26,27 @@ public class PokeApiClientConfig {
 	}
 
 	@Bean
-	public PokemonCatalog pokeApiPokemonCatalog(RestClient pokeApiRestClient, PokeApiProperties properties) {
-		return new PokeApiPokemonCatalog(pokeApiRestClient, new Semaphore(properties.maxConcurrentRequests()), properties);
+	public Semaphore pokeApiPermits(PokeApiProperties properties) {
+		return new Semaphore(properties.maxConcurrentRequests());
+	}
+
+	@Bean
+	PokeApiEvolutionChains pokeApiEvolutionChains(
+			RestClient pokeApiRestClient,
+			Semaphore pokeApiPermits,
+			PokeApiProperties properties
+	) {
+		return new PokeApiEvolutionChains(pokeApiRestClient, pokeApiPermits, properties);
+	}
+
+	@Bean
+	public PokemonCatalog pokeApiPokemonCatalog(
+			RestClient pokeApiRestClient,
+			Semaphore pokeApiPermits,
+			PokeApiProperties properties,
+			PokeApiEvolutionChains evolutionChains
+	) {
+		return new PokeApiPokemonCatalog(pokeApiRestClient, pokeApiPermits, properties, evolutionChains);
 	}
 
 	static RestClient.Builder restClientBuilder(PokeApiProperties properties) {

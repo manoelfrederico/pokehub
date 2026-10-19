@@ -3,6 +3,7 @@ package com.fred.pokehub.application.service;
 import com.fred.pokehub.application.exception.CatalogUnavailableException;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
 import com.fred.pokehub.domain.model.PageQuery;
+import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonReference;
 import com.fred.pokehub.domain.model.PokemonReferencePage;
@@ -307,6 +308,11 @@ class ListPokemonServiceTest {
 				return loader.load();
 			}
 			return summaries.get(id);
+		}
+
+		@Override
+		public PokemonDetails findDetailsById(int id) {
+			throw new UnsupportedOperationException("findDetailsById");
 		}
 
 	}

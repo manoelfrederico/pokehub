@@ -24,6 +24,7 @@ final class PokeApiResponses {
 			String name,
 			int weight,
 			List<AbilitySlot> abilities,
+			List<StatSlot> stats,
 			Sprites sprites,
 			NamedResource species
 	) {
@@ -31,6 +32,10 @@ final class PokeApiResponses {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	record AbilitySlot(NamedResource ability, @JsonProperty("is_hidden") boolean hidden) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record StatSlot(@JsonProperty("base_stat") int baseStat, NamedResource stat) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
@@ -46,7 +51,11 @@ final class PokeApiResponses {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
-	record Species(List<Genus> genera) {
+	record Species(
+			List<Genus> genera,
+			@JsonProperty("flavor_text_entries") List<FlavorText> flavorTextEntries,
+			@JsonProperty("evolution_chain") NamedResource evolutionChain
+	) {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
@@ -54,7 +63,19 @@ final class PokeApiResponses {
 	}
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
+	record FlavorText(@JsonProperty("flavor_text") String flavorText, Language language) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
 	record Language(String name) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record EvolutionChain(ChainLink chain) {
+	}
+
+	@JsonIgnoreProperties(ignoreUnknown = true)
+	record ChainLink(NamedResource species, @JsonProperty("evolves_to") List<ChainLink> evolvesTo) {
 	}
 
 }
