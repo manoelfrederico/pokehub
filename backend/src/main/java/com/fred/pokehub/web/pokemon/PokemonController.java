@@ -8,8 +8,17 @@ import com.fred.pokehub.application.port.in.UpdatePokemonExtrasCommand;
 import com.fred.pokehub.application.port.in.UpdatePokemonExtrasUseCase;
 import com.fred.pokehub.domain.model.PageQuery;
 import com.fred.pokehub.domain.model.SyncResult;
+import com.fred.pokehub.web.OpenApiConfig;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/pokemon")
+@Tag(name = "pokemon")
 public class PokemonController {
 
 	private final ListPokemonUseCase listPokemon;
@@ -50,17 +60,45 @@ public class PokemonController {
 	}
 
 	@GetMapping
-	PokemonPageResponse list(@RequestParam(required = false) Integer limit, @RequestParam(required = false) Integer offset) {
+	@Operation(summary = "List Pokémon")
+	@ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = OpenApiConfig.JSON, schema = @Schema(implementation = PokemonPageResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Bad request", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "502", description = "Catalog unavailable", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "500", description = "Internal error", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	PokemonPageResponse list(
+			@Parameter(name = "limit", schema = @Schema(type = "integer", minimum = "1", maximum = "50", defaultValue = "20"))
+			@RequestParam(name = "limit", required = false) Integer limit,
+			@Parameter(name = "offset", schema = @Schema(type = "integer", minimum = "0", defaultValue = "0"))
+			@RequestParam(name = "offset", required = false) Integer offset) {
 		return PokemonPageResponse.from(listPokemon.list(PageQuery.of(limit, offset)));
 	}
 
 	@GetMapping("/{id}")
-	PokemonDetailsResponse details(@PathVariable int id) {
+	@Operation(summary = "Get Pokémon details")
+	@ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = OpenApiConfig.JSON, schema = @Schema(implementation = PokemonDetailsResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Bad request", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "Pokémon not found", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "502", description = "Catalog unavailable", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "500", description = "Internal error", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	PokemonDetailsResponse details(
+			@Parameter(description = "Integer of at least 1. Alternative forms use ids of 10001 or greater.", schema = @Schema(type = "integer", minimum = "1"))
+			@PathVariable int id) {
 		return PokemonDetailsResponse.from(details.get(id));
 	}
 
 	@PostMapping("/{id}/sync")
-	ResponseEntity<PokemonDetailsResponse> sync(@PathVariable int id) {
+	@SecurityRequirement(name = OpenApiConfig.BEARER)
+	@Operation(summary = "Sync a Pokémon")
+	@ApiResponse(responseCode = "201", description = "Created", content = @Content(mediaType = OpenApiConfig.JSON, schema = @Schema(implementation = PokemonDetailsResponse.class)))
+	@ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = OpenApiConfig.JSON, schema = @Schema(implementation = PokemonDetailsResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Bad request", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "Pokémon not found", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "502", description = "Catalog unavailable", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "500", description = "Internal error", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	ResponseEntity<PokemonDetailsResponse> sync(
+			@Parameter(description = "Integer of at least 1. Alternative forms use ids of 10001 or greater.", schema = @Schema(type = "integer", minimum = "1"))
+			@PathVariable int id) {
 		SyncResult result = syncPokemon.sync(id);
 		PokemonDetailsResponse body = PokemonDetailsResponse.from(result.view());
 		if (result.created()) {
@@ -70,13 +108,33 @@ public class PokemonController {
 	}
 
 	@DeleteMapping("/{id}/sync")
-	ResponseEntity<Void> unsync(@PathVariable int id) {
+	@SecurityRequirement(name = OpenApiConfig.BEARER)
+	@Operation(summary = "Remove a synced Pokémon")
+	@ApiResponse(responseCode = "204", description = "No content")
+	@ApiResponse(responseCode = "400", description = "Bad request", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "Pokémon not stored", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "500", description = "Internal error", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	ResponseEntity<Void> unsync(
+			@Parameter(description = "Integer of at least 1. Alternative forms use ids of 10001 or greater.", schema = @Schema(type = "integer", minimum = "1"))
+			@PathVariable int id) {
 		unsyncPokemon.unsync(id);
 		return ResponseEntity.noContent().build();
 	}
 
 	@PutMapping("/{id}/extras")
-	PokemonDetailsResponse updateExtras(@PathVariable int id, @Valid @RequestBody UpdateExtrasRequest request) {
+	@SecurityRequirement(name = OpenApiConfig.BEARER)
+	@Operation(summary = "Replace Pokémon extras")
+	@ApiResponse(responseCode = "200", description = "OK", content = @Content(mediaType = OpenApiConfig.JSON, schema = @Schema(implementation = PokemonDetailsResponse.class)))
+	@ApiResponse(responseCode = "400", description = "Bad request. Validation failures add errors.", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "404", description = "Pokémon not stored", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "415", description = "Unsupported media type", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	@ApiResponse(responseCode = "500", description = "Internal error", content = @Content(mediaType = OpenApiConfig.PROBLEM, schema = @Schema(implementation = ProblemDetail.class)))
+	PokemonDetailsResponse updateExtras(
+			@Parameter(description = "Integer of at least 1. Alternative forms use ids of 10001 or greater.", schema = @Schema(type = "integer", minimum = "1"))
+			@PathVariable int id,
+			@Valid @RequestBody UpdateExtrasRequest request) {
 		UpdatePokemonExtrasCommand command = new UpdatePokemonExtrasCommand(
 				id,
 				request.localizedName(),

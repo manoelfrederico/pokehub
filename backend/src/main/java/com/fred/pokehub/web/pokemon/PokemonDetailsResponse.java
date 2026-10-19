@@ -2,6 +2,7 @@ package com.fred.pokehub.web.pokemon;
 
 import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.PokemonView;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -9,16 +10,16 @@ import java.util.List;
 public record PokemonDetailsResponse(
 		int id,
 		String name,
-		String image,
-		String sprite,
-		String category,
-		BigDecimal mass,
+		@Schema(nullable = true) String image,
+		@Schema(nullable = true) String sprite,
+		@Schema(nullable = true) String category,
+		@Schema(description = "Mass in kilograms") BigDecimal mass,
 		List<SkillResponse> skills,
 		List<StatResponse> stats,
-		String description,
+		@Schema(nullable = true) String description,
 		EvolutionNodeResponse evolutionChain,
 		boolean synced,
-		PokemonExtrasResponse extras
+		@Schema(description = "Null when synced is false") PokemonExtrasResponse extras
 ) {
 
 	public static PokemonDetailsResponse from(PokemonView view) {

@@ -1,12 +1,17 @@
 package com.fred.pokehub.web.pokemon;
 
 import com.fred.pokehub.domain.model.PokemonPage;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.List;
 import java.util.Optional;
 
-public record PokemonPageResponse(int count, String next, String previous, List<PokemonSummaryResponse> results) {
+public record PokemonPageResponse(
+		int count,
+		@Schema(nullable = true) String next,
+		@Schema(nullable = true) String previous,
+		List<PokemonSummaryResponse> results) {
 
 	public static PokemonPageResponse from(PokemonPage page) {
 		int limit = page.query().limit();

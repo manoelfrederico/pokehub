@@ -15,6 +15,8 @@ Authentication: `Authorization: Bearer <jwt>` obtained from `/auth/login`.
 | `POST /auth/register`, `POST /auth/login` | public | auth |
 | `/v3/api-docs/**`, `/swagger-ui/**`, `/actuator/health` | public | tooling |
 
+Swagger UI is `/swagger-ui/index.html`. `GET /v3/api-docs` is the OpenAPI document. `docs/openapi.json` is a snapshot of that document; its `servers` url is the host that generated the snapshot.
+
 ## US01 — `GET /pokemon?limit=20&offset=0`
 
 `limit`: integer 1–50, default 20. `offset`: integer ≥ 0, default 0. Page links are built from the incoming request URL.
@@ -57,7 +59,7 @@ Authentication: `Authorization: Bearer <jwt>` obtained from `/auth/login`.
   "extras": { "localizedName": "Bulbassauro", "region": "Kanto", "tags": ["starter", "grass"] }
 }
 ```
-`extras` is `null` when `synced` is `false`.
+`mass` is in kilograms. `image`, `sprite`, `category` and `description` may be `null`. `extras` is `null` when `synced` is `false`.
 
 ## US03 — sync
 
@@ -77,8 +79,8 @@ Response `200 OK`: the detail representation. `404` when the Pokémon is not sto
 ## Auth
 
 `POST /auth/register` `{ "username": "ash", "password": "Pikachu#2026" }` → `201 Created` `{ "id": "…", "username": "ash" }`.
-Username: 3–30 chars `[a-z0-9._-]`, stored lower-case, unique (`409` if taken). Password: 8–72 chars, at least one letter and one digit.
-`POST /auth/login` same body → `200 OK` `{ "accessToken": "…", "tokenType": "Bearer", "expiresIn": 3600 }`; `401` for bad credentials (same message for unknown user and wrong password).
+Username: 3–30 characters. The request accepts `[A-Za-z0-9._-]`; it is stored lower-case, so the stored value matches `[a-z0-9._-]`, and is unique (`409` if taken). Password: 8–72 chars, at least one letter and one digit.
+`POST /auth/login` same body → `200 OK` `{ "accessToken": "…", "tokenType": "Bearer", "expiresIn": 3600 }`. `expiresIn` is the lifetime in seconds. `401` for bad credentials (same message for unknown user and wrong password).
 
 ## Error mapping
 

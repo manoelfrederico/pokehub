@@ -1,6 +1,7 @@
 package com.fred.pokehub.web.pokemon;
 
 import com.fred.pokehub.domain.model.PokemonSummary;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -8,9 +9,9 @@ import java.util.List;
 public record PokemonSummaryResponse(
 		int id,
 		String name,
-		String sprite,
-		String category,
-		BigDecimal mass,
+		@Schema(nullable = true) String sprite,
+		@Schema(nullable = true) String category,
+		@Schema(description = "Mass in kilograms") BigDecimal mass,
 		List<SkillResponse> skills,
 		boolean synced
 ) {
