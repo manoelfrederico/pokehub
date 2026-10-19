@@ -192,6 +192,11 @@ class GetPokemonDetailsServiceTest {
 		}
 
 		@Override
+		public Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras) {
+			throw new UnsupportedOperationException("updateExtras");
+		}
+
+		@Override
 		public boolean deleteById(int id) {
 			throw new UnsupportedOperationException("deleteById");
 		}

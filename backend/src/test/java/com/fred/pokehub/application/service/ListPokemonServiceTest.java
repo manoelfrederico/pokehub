@@ -5,6 +5,7 @@ import com.fred.pokehub.application.port.out.PokemonCatalog;
 import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.domain.model.PageQuery;
 import com.fred.pokehub.domain.model.PokemonDetails;
+import com.fred.pokehub.domain.model.PokemonExtras;
 import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonReference;
 import com.fred.pokehub.domain.model.PokemonReferencePage;
@@ -398,6 +399,11 @@ class ListPokemonServiceTest {
 		@Override
 		public boolean saveSnapshot(PokemonDetails details) {
 			throw new UnsupportedOperationException("saveSnapshot");
+		}
+
+		@Override
+		public Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras) {
+			throw new UnsupportedOperationException("updateExtras");
 		}
 
 		@Override

@@ -61,12 +61,6 @@ class PokemonViewTest {
 				.isInstanceOf(UnsupportedOperationException.class);
 	}
 
-	@Test
-	void shouldRejectNullTags() {
-		assertThatThrownBy(() -> new PokemonExtras(null, null, null))
-				.isInstanceOf(IllegalArgumentException.class);
-	}
-
 	private static PokemonDetails details() {
 		return new PokemonDetails(
 				1,

@@ -7,6 +7,9 @@ import com.fred.pokehub.application.port.in.GetPokemonDetailsUseCase;
 import com.fred.pokehub.application.port.in.ListPokemonUseCase;
 import com.fred.pokehub.application.port.in.SyncPokemonUseCase;
 import com.fred.pokehub.application.port.in.UnsyncPokemonUseCase;
+import com.fred.pokehub.application.port.out.PokemonStore;
+import com.fred.pokehub.application.service.UpdatePokemonExtrasService;
+import com.fred.pokehub.config.JsonMapperConfig;
 import com.fred.pokehub.domain.exception.InvalidPokemonIdException;
 import com.fred.pokehub.domain.model.Ability;
 import com.fred.pokehub.domain.model.EvolutionNode;
@@ -18,6 +21,7 @@ import com.fred.pokehub.domain.model.PokemonPage;
 import com.fred.pokehub.domain.model.PokemonSummary;
 import com.fred.pokehub.domain.model.PokemonView;
 import com.fred.pokehub.domain.model.Stat;
+import com.fred.pokehub.domain.model.StoredPokemon;
 import com.fred.pokehub.domain.model.SyncResult;
 import com.fred.pokehub.support.PokemonSamples;
 import com.fred.pokehub.web.GlobalExceptionHandler;
@@ -26,13 +30,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.JacksonJsonHttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -40,6 +49,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -56,6 +66,8 @@ class PokemonControllerTest {
 
 	private FakeUnsync unsync;
 
+	private ExtrasStore extrasStore;
+
 	private MockMvc mockMvc;
 
 	@BeforeEach
@@ -64,9 +76,14 @@ class PokemonControllerTest {
 		details = new FakeDetails();
 		sync = new FakeSync();
 		unsync = new FakeUnsync();
-		mockMvc = MockMvcBuilders.standaloneSetup(new PokemonController(useCase, details, sync, unsync))
+		extrasStore = new ExtrasStore();
+		LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+		validator.afterPropertiesSet();
+		mockMvc = MockMvcBuilders.standaloneSetup(new PokemonController(useCase, details, sync, unsync,
+						new UpdatePokemonExtrasService(extrasStore)))
 				.setControllerAdvice(new GlobalExceptionHandler())
-				.setMessageConverters(new JacksonJsonHttpMessageConverter(JsonMapper.builder().build()))
+				.setValidator(validator)
+				.setMessageConverters(new JacksonJsonHttpMessageConverter(jsonMapper()))
 				.build();
 	}
 
@@ -454,6 +471,250 @@ class PokemonControllerTest {
 				.andExpect(jsonPath("$.detail").value(containsString("44")));
 	}
 
+	@Test
+	void shouldReplaceExtrasOfAStoredPokemon() throws Exception {
+		extrasStore.stored = new StoredPokemon(bulbasaurView(PokemonExtras.empty(), true).details(), PokemonExtras.empty());
+
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"localizedName":"  Bulbassauro  ","region":" Kanto ","tags":["  GRASS ","Fire"]}
+								"""))
+				.andExpect(status().isOk())
+				.andExpect(content().contentTypeCompatibleWith("application/json"))
+				.andExpect(jsonPath("$.id").value(1))
+				.andExpect(jsonPath("$.name").value("bulbasaur"))
+				.andExpect(jsonPath("$.mass").value(6.9))
+				.andExpect(jsonPath("$.stats[0].name").value("hp"))
+				.andExpect(jsonPath("$.synced").value(true))
+				.andExpect(jsonPath("$.extras.localizedName").value("Bulbassauro"))
+				.andExpect(jsonPath("$.extras.region").value("Kanto"))
+				.andExpect(jsonPath("$.extras.tags[0]").value("grass"))
+				.andExpect(jsonPath("$.extras.tags[1]").value("fire"));
+	}
+
+	@Test
+	void shouldReturnTheSameExtrasWhenThePutIsRepeated() throws Exception {
+		extrasStore.stored = new StoredPokemon(bulbasaurView(PokemonExtras.empty(), true).details(), PokemonExtras.empty());
+		String body = """
+				{"localizedName":"Bulbassauro","region":"Kanto","tags":["starter"]}
+				""";
+
+		mockMvc.perform(put("/api/v1/pokemon/1/extras").contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.extras.localizedName").value("Bulbassauro"))
+				.andExpect(jsonPath("$.extras.tags[0]").value("starter"));
+		mockMvc.perform(put("/api/v1/pokemon/1/extras").contentType(MediaType.APPLICATION_JSON).content(body))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.extras.localizedName").value("Bulbassauro"))
+				.andExpect(jsonPath("$.extras.region").value("Kanto"))
+				.andExpect(jsonPath("$.extras.tags[0]").value("starter"));
+
+		assertThat(extrasStore.updateCalls).isEqualTo(2);
+	}
+
+	@Test
+	void shouldReturnNotStoredWhenThePokemonHasNotBeenSynced() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/9/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{}"))
+				.andExpect(status().isNotFound())
+				.andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.title").value("Pokémon not stored"))
+				.andExpect(jsonPath("$.detail").value(containsString("9")));
+	}
+
+	@Test
+	void shouldRejectMalformedJson() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"localizedName\":"))
+				.andExpect(status().isBadRequest())
+				.andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+				.andExpect(jsonPath("$.title").value("Bad request"))
+				.andExpect(jsonPath("$.errors[0].field").value("body"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectAnEmptyBody() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content(""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("body"))
+				.andExpect(jsonPath("$.errors[0].message").value("is required"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectAJsonArrayBody() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("[]"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("body"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectAJsonStringBody() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("\"hello\""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("body"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectAnUnknownNameField() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"<script>alert(1)</script>\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("name"))
+				.andExpect(jsonPath("$.errors[0].message").value("is not allowed"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."))
+				.andExpect(content().string(org.hamcrest.Matchers.not(containsString("<script>alert(1)</script>"))));
+	}
+
+	@Test
+	void shouldRejectAnUnknownWeightField() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"weight\":69}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("weight"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectTagsSentAsAString() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"tags\":\"starter\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("tags"))
+				.andExpect(jsonPath("$.errors[0].message").value("has an invalid type"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectANumericLocalizedName() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"localizedName\":12}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("localizedName"))
+				.andExpect(jsonPath("$.errors[0].message").value("has an invalid type"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."));
+	}
+
+	@Test
+	void shouldRejectTextLongerThanOneHundredCharacters() throws Exception {
+		extrasStore.stored = new StoredPokemon(bulbasaurView(PokemonExtras.empty(), true).details(), PokemonExtras.empty());
+		String script = "<script>alert(1)</script>";
+
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"localizedName\":\"" + script + "a".repeat(80) + "\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("localizedName"))
+				.andExpect(jsonPath("$.errors[0].message").value("must be at most 100 characters"))
+				.andExpect(jsonPath("$.detail").value("The request body is invalid."))
+				.andExpect(content().string(org.hamcrest.Matchers.not(containsString(script))));
+
+		assertThat(extrasStore.updateCalls).isZero();
+	}
+
+	@Test
+	void shouldRejectARegionLongerThanOneHundredCharacters() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"region\":\"" + "r".repeat(101) + "\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("region"))
+				.andExpect(jsonPath("$.errors[0].message").value("must be at most 100 characters"));
+	}
+
+	@Test
+	void shouldRejectElevenTags() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("""
+								{"tags":["one","two","three","four","five","six","seven","eight","nine","ten","eleven"]}
+								"""))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("tags"))
+				.andExpect(jsonPath("$.errors[0].message").value("must contain at most 10 tags"));
+	}
+
+	@Test
+	void shouldRejectDuplicateTags() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"tags\":[\"Grass\",\" grass \"]}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("tags"))
+				.andExpect(jsonPath("$.errors[0].message").value("must not contain duplicates"))
+				.andExpect(content().string(org.hamcrest.Matchers.not(containsString("Grass"))));
+	}
+
+	@Test
+	void shouldRejectABlankTag() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"tags\":[\"  \"]}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.errors[0].field").value("tags[0]"))
+				.andExpect(jsonPath("$.errors[0].message").value("must not be blank"));
+
+		assertThat(extrasStore.updateCalls).isZero();
+	}
+
+	@ParameterizedTest
+	@ValueSource(strings = {"0", "-1"})
+	void shouldRejectANonPositiveExtrasId(String id) throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/" + id + "/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.title").value("Bad request"))
+				.andExpect(jsonPath("$.detail").value(containsString(id)));
+
+		assertThat(extrasStore.updateCalls).isZero();
+	}
+
+	@Test
+	void shouldRejectAnUnparseableExtrasId() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/abc/extras")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.detail").value(containsString("abc")));
+
+		assertThat(extrasStore.updateCalls).isZero();
+	}
+
+	@Test
+	void shouldRejectPlainText() throws Exception {
+		mockMvc.perform(put("/api/v1/pokemon/1/extras")
+						.contentType(MediaType.TEXT_PLAIN)
+						.content("localizedName=Kanto"))
+				.andExpect(status().isUnsupportedMediaType())
+				.andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+				.andExpect(jsonPath("$.status").value(415));
+	}
+
+	private static JsonMapper jsonMapper() {
+		JsonMapper.Builder builder = JsonMapper.builder();
+		JsonMapperConfig.apply(builder);
+		return builder.build();
+	}
+
 	private static PokemonView bulbasaurView(PokemonExtras extras, boolean synced) {
 		EvolutionNode venusaur = new EvolutionNode(3, "venusaur", "https://sprites/3.png", List.of());
 		EvolutionNode ivysaur = new EvolutionNode(2, "ivysaur", "https://sprites/2.png", List.of(venusaur));
@@ -554,6 +815,44 @@ class PokemonControllerTest {
 			if (failure != null) {
 				throw failure;
 			}
+		}
+
+	}
+
+	private static final class ExtrasStore implements PokemonStore {
+
+		private StoredPokemon stored;
+
+		private int updateCalls;
+
+		@Override
+		public Optional<StoredPokemon> findById(int id) {
+			throw new UnsupportedOperationException("findById");
+		}
+
+		@Override
+		public Set<Integer> findSyncedIds(Collection<Integer> ids) {
+			throw new UnsupportedOperationException("findSyncedIds");
+		}
+
+		@Override
+		public boolean saveSnapshot(PokemonDetails details) {
+			throw new UnsupportedOperationException("saveSnapshot");
+		}
+
+		@Override
+		public Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras) {
+			updateCalls++;
+			if (stored == null || stored.details().id() != id) {
+				return Optional.empty();
+			}
+			stored = new StoredPokemon(stored.details(), extras);
+			return Optional.of(stored);
+		}
+
+		@Override
+		public boolean deleteById(int id) {
+			throw new UnsupportedOperationException("deleteById");
 		}
 
 	}

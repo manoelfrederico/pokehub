@@ -4,6 +4,7 @@ import com.fred.pokehub.application.exception.PokemonNotSyncedException;
 import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.domain.exception.InvalidPokemonIdException;
 import com.fred.pokehub.domain.model.PokemonDetails;
+import com.fred.pokehub.domain.model.PokemonExtras;
 import com.fred.pokehub.domain.model.StoredPokemon;
 import org.junit.jupiter.api.Test;
 
@@ -81,6 +82,11 @@ class UnsyncPokemonServiceTest {
 		@Override
 		public boolean saveSnapshot(PokemonDetails details) {
 			throw new UnsupportedOperationException("saveSnapshot");
+		}
+
+		@Override
+		public Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras) {
+			throw new UnsupportedOperationException("updateExtras");
 		}
 
 		@Override

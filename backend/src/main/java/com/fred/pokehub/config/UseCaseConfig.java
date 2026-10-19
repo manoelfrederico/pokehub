@@ -4,12 +4,14 @@ import com.fred.pokehub.application.port.in.GetPokemonDetailsUseCase;
 import com.fred.pokehub.application.port.in.ListPokemonUseCase;
 import com.fred.pokehub.application.port.in.SyncPokemonUseCase;
 import com.fred.pokehub.application.port.in.UnsyncPokemonUseCase;
+import com.fred.pokehub.application.port.in.UpdatePokemonExtrasUseCase;
 import com.fred.pokehub.application.port.out.PokemonCatalog;
 import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.application.service.GetPokemonDetailsService;
 import com.fred.pokehub.application.service.ListPokemonService;
 import com.fred.pokehub.application.service.SyncPokemonService;
 import com.fred.pokehub.application.service.UnsyncPokemonService;
+import com.fred.pokehub.application.service.UpdatePokemonExtrasService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -42,6 +44,11 @@ public class UseCaseConfig {
 	@Bean
 	UnsyncPokemonUseCase unsyncPokemonUseCase(PokemonStore store) {
 		return new UnsyncPokemonService(store);
+	}
+
+	@Bean
+	UpdatePokemonExtrasUseCase updatePokemonExtrasUseCase(PokemonStore store) {
+		return new UpdatePokemonExtrasService(store);
 	}
 
 }

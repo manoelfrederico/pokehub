@@ -5,6 +5,7 @@ import com.fred.pokehub.domain.model.EvolutionNode;
 import com.fred.pokehub.domain.model.Mass;
 import com.fred.pokehub.domain.model.PokemonDetails;
 import com.fred.pokehub.domain.model.Stat;
+import com.fred.pokehub.domain.model.StoredPokemon;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -197,6 +198,56 @@ class JpaPokemonStoreTest {
 		when(pokemon.findById(4)).thenReturn(Optional.empty());
 
 		assertThat(store.findById(4)).isEmpty();
+	}
+
+	@Test
+	void shouldReplaceExtrasAndLeaveTheSnapshotUntouched() {
+		PokemonEntity existing = storedBulbasaur();
+		SpeciesEntity speciesRow = existing.species();
+		List<PokemonAbilityEntity> abilityRows = List.copyOf(existing.abilities());
+		List<PokemonStatEntity> statRows = List.copyOf(existing.stats());
+		when(pokemon.findById(1)).thenReturn(Optional.of(existing));
+
+		Optional<StoredPokemon> updated = store.updateExtras(
+				1,
+				new com.fred.pokehub.domain.model.PokemonExtras("  Ivysaur  ", " Johto ", List.of("  GRASS ", "Fire")));
+
+		assertThat(updated).isPresent();
+		PokemonEntity saved = savedPokemon();
+		assertThat(saved).isSameAs(existing);
+		assertThat(saved.name()).isEqualTo("bulbasaur");
+		assertThat(saved.weightHg()).isEqualTo(69);
+		assertThat(saved.spriteUrl()).isNull();
+		assertThat(saved.imageUrl()).isNull();
+		assertThat(saved.species()).isSameAs(speciesRow);
+		assertThat(saved.abilities()).containsExactlyElementsOf(abilityRows);
+		assertThat(saved.stats()).containsExactlyElementsOf(statRows);
+		assertThat(saved.localizedName()).isEqualTo("Ivysaur");
+		assertThat(saved.region()).isEqualTo("Johto");
+		assertThat(saved.tags()).extracting(PokemonTagEntity::tag).containsExactly("grass", "fire");
+		assertThat(updated.orElseThrow().details().name()).isEqualTo("bulbasaur");
+		assertThat(updated.orElseThrow().extras().tags()).containsExactly("grass", "fire");
+		verify(species, never()).save(any());
+		verify(abilities, never()).save(any());
+	}
+
+	@Test
+	void shouldReturnEmptyWhenUpdatingExtrasForAnAbsentPokemon() {
+		when(pokemon.findById(9)).thenReturn(Optional.empty());
+
+		assertThat(store.updateExtras(9, com.fred.pokehub.domain.model.PokemonExtras.empty())).isEmpty();
+
+		verify(pokemon, never()).save(any());
+		verifyNoInteractions(species, abilities);
+	}
+
+	@Test
+	void shouldRejectNullExtras() {
+		assertThatThrownBy(() -> store.updateExtras(1, null))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("extras");
+
+		verifyNoInteractions(pokemon);
 	}
 
 	@Test

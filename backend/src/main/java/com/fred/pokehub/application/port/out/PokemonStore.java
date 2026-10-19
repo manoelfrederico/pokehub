@@ -1,6 +1,7 @@
 package com.fred.pokehub.application.port.out;
 
 import com.fred.pokehub.domain.model.PokemonDetails;
+import com.fred.pokehub.domain.model.PokemonExtras;
 import com.fred.pokehub.domain.model.StoredPokemon;
 
 import java.util.Collection;
@@ -26,6 +27,14 @@ public interface PokemonStore {
 	 * @return {@code true} when this call created the row
 	 */
 	boolean saveSnapshot(PokemonDetails details);
+
+	/**
+	 * Replaces proprietary extras for one stored Pokémon.
+	 * Snapshot columns, abilities, stats and species stay unchanged.
+	 *
+	 * @return the updated replica, or empty when {@code id} is not stored
+	 */
+	Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras);
 
 	/**
 	 * @return {@code true} when a row was removed

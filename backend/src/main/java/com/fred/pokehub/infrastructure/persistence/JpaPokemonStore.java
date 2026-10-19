@@ -3,6 +3,7 @@ package com.fred.pokehub.infrastructure.persistence;
 import com.fred.pokehub.application.port.out.PokemonStore;
 import com.fred.pokehub.domain.model.Ability;
 import com.fred.pokehub.domain.model.PokemonDetails;
+import com.fred.pokehub.domain.model.PokemonExtras;
 import com.fred.pokehub.domain.model.StoredPokemon;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +54,19 @@ public class JpaPokemonStore implements PokemonStore {
 		return pokemon.findById(details.id())
 				.map(existing -> refresh(existing, details, speciesRow))
 				.orElseGet(() -> insert(details, speciesRow));
+	}
+
+	@Override
+	@Transactional
+	public Optional<StoredPokemon> updateExtras(int id, PokemonExtras extras) {
+		Objects.requireNonNull(extras, "extras");
+		return pokemon.findById(id).map(entity -> writeExtras(entity, extras));
+	}
+
+	private StoredPokemon writeExtras(PokemonEntity entity, PokemonExtras extras) {
+		StoredPokemonMapper.replaceExtras(entity, extras);
+		pokemon.save(entity);
+		return StoredPokemonMapper.toDomain(entity);
 	}
 
 	@Override
